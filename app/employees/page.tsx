@@ -1,23 +1,21 @@
 import { requireUser } from "@/lib/session";
-import { getCopyPricePerGB } from "@/lib/pricing/copy-price-store";
+import { getEmployees } from "@/lib/employees/queries";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
-import { CopyPriceSettings } from "@/components/pricing/copy-price-settings";
+import { EmployeesView } from "@/components/employees/employees-view";
 
 export const metadata = {
-  title: "سعر النسخ",
-  description: "تحديد سعر النسخ بالجيجابايت",
+  title: "إدارة الموظفين",
+  description: "إدارة الموظفين وإضافة وتعديل بياناتهم",
 };
 
-export const dynamic = "force-dynamic";
-
-export default async function CopyPricePage() {
+export default async function EmployeesPage() {
   const session = await requireUser();
   const user = session.user;
 
-  const pricePerGB = await getCopyPricePerGB();
+  const summary = await getEmployees();
 
   return (
-    <DashboardShell user={{ name: user.name, role: user.role }} titleKey="sidebar.copyPrice">
+    <DashboardShell user={{ name: user.name, role: user.role }} titleKey="sidebar.manageEmployees">
       <div className="relative flex w-full flex-col overflow-hidden min-h-[calc(100dvh-14rem)]">
         <div
           className="pointer-events-none absolute -top-10 -end-16 size-60 rounded-full bg-primary/10 blur-3xl"
@@ -28,7 +26,7 @@ export default async function CopyPricePage() {
           aria-hidden="true"
         />
         <div className="relative flex-1">
-          <CopyPriceSettings isAdmin={user.role === "admin"} initialPrice={pricePerGB} />
+          <EmployeesView initialSummary={summary} />
         </div>
       </div>
     </DashboardShell>

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Cairo } from "next/font/google";
 import { LocaleProvider } from "@/lib/i18n/locale-provider";
 import { STORAGE_KEY } from "@/lib/i18n/dictionaries";
@@ -22,12 +23,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ar" dir="rtl" className={`${cairo.variable} h-full antialiased`} suppressHydrationWarning>
       <body className="min-h-full flex flex-col">
-        <script
+        <Script
+          id="locale-init"
+          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
             __html: `try{var l=localStorage.getItem(${JSON.stringify(STORAGE_KEY)});var d=l==="en"?"ltr":"rtl";var h=document.documentElement;h.setAttribute("dir",d);h.setAttribute("lang",l==="en"?"en":"ar");}catch(e){}`,
           }}
         />
-        <script
+        <Script
+          id="theme-init"
+          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
             __html: `try{var t=localStorage.getItem("celia-theme");var d=t?t==="dark":window.matchMedia("(prefers-color-scheme: dark)").matches;if(d)document.documentElement.classList.add("dark");}catch(e){}`,
           }}

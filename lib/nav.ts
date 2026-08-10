@@ -96,7 +96,6 @@ export function getSidebarSections(t: Dictionary): SidebarSection[] {
           label: s.advances,
           icon: CircleOff,
           children: [
-            { label: s.addAdvance, href: "/addAdvance", icon: FolderMinus },
             { label: s.viewAdvances, href: "/showAdvance", icon: FolderMinus },
           ],
         },

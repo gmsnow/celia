@@ -30,6 +30,7 @@ interface DataTableProps<T> {
   labels: DataTableLabels;
   minWidth?: string;
   rowNumberSuffix?: string;
+  rowClassName?: (row: T) => string | undefined;
   empty?: ReactNode;
 }
 
@@ -44,6 +45,7 @@ export function DataTable<T>({
   labels,
   minWidth = "min-w-160",
   rowNumberSuffix = "",
+  rowClassName,
   empty,
 }: DataTableProps<T>) {
   const [search, setSearch] = useState("");
@@ -140,7 +142,10 @@ export function DataTable<T>({
               pageRows.map((row, index) => (
                 <tr
                   key={keyOf(row)}
-                  className="border-b border-border/60 last:border-b-0 hover:bg-muted/40"
+                  className={cn(
+                    "border-b border-border/60 last:border-b-0 hover:bg-muted/40",
+                    rowClassName?.(row),
+                  )}
                 >
                   <td className="px-4 py-3 text-xs font-semibold text-muted-foreground">
                     {safePage * pageLength + index + 1}

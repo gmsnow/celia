@@ -103,9 +103,10 @@ interface TreeItemProps {
 
 function TreeItem({ link, depth, expanded, toggled, onToggle, pathname }: TreeItemProps) {
   const children = link.children ?? [];
-  const hasChildren = children.length > 0;
+  const singleLeafChild =
+    children.length === 1 && !(children[0].children && children[0].children.length > 0);
 
-  if (hasChildren) {
+  if (children.length > 0 && !singleLeafChild) {
     const userToggled = toggled.has(link.label);
     const isExpanded = userToggled ? expanded.has(link.label) : containsActive(link, pathname);
     const hasActiveChild = containsActive(link, pathname);
@@ -154,12 +155,13 @@ function TreeItem({ link, depth, expanded, toggled, onToggle, pathname }: TreeIt
     );
   }
 
-  const active = link.href === pathname;
+  const href = singleLeafChild ? (children[0].href ?? "#") : (link.href ?? "#");
+  const active = singleLeafChild ? containsActive(link, pathname) : link.href === pathname;
 
   return (
     <li>
       <Link
-        href={link.href ?? "#"}
+        href={href}
         className={cn(
           "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold transition-colors",
           active
