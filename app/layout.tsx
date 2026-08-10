@@ -1,0 +1,39 @@
+import type { Metadata } from "next";
+import { Cairo } from "next/font/google";
+import { LocaleProvider } from "@/lib/i18n/locale-provider";
+import { STORAGE_KEY } from "@/lib/i18n/dictionaries";
+import "./globals.css";
+
+const cairo = Cairo({
+  variable: "--font-cairo",
+  subsets: ["arabic", "latin"],
+  display: "swap",
+});
+
+export const metadata: Metadata = {
+  title: {
+    default: "سيليا | نظام إدارة الإنترنت ",
+    template: "%s | سيليا",
+  },
+  description: "نظام متكامل لإدارةالإنترنت ",
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="ar" dir="rtl" className={`${cairo.variable} h-full antialiased`} suppressHydrationWarning>
+      <body className="min-h-full flex flex-col">
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var l=localStorage.getItem(${JSON.stringify(STORAGE_KEY)});var d=l==="en"?"ltr":"rtl";var h=document.documentElement;h.setAttribute("dir",d);h.setAttribute("lang",l==="en"?"en":"ar");}catch(e){}`,
+          }}
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var t=localStorage.getItem("celia-theme");var d=t?t==="dark":window.matchMedia("(prefers-color-scheme: dark)").matches;if(d)document.documentElement.classList.add("dark");}catch(e){}`,
+          }}
+        />
+        <LocaleProvider>{children}</LocaleProvider>
+      </body>
+    </html>
+  );
+}
