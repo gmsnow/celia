@@ -1,7 +1,7 @@
 # PROJECT_MAP.md — Internet Café Management System (CelíA)
 
 > وثيقة الحالة الحية للمشروع. تُحدَّث بعد كل ميزة (بروتوكول State Sync).
-> آخر تحديث: 2026-08-11 (M0–M10 مكتملة)
+> آخر تحديث: 2026-08-11 (M0–M11 مكتملة)
 
 ---
 
@@ -20,6 +20,7 @@
 | **M8 — `/totalOfbalence`** | ✅ مكتمل | صفحة عرض إجمالي شحن التطبيقات: نموذج شحن الرصيد (نفس `/balenceSelles`) + جدول سجل عمليات الشحن (المزود/المبلغ/ملاحظات/الموظف/التاريخ) + إجمالي المبلغ، مع تحديث مباشر بعد كل عملية (GET `/api/balance/charge`) |
 | **M9 — `/embedProductPrice` تعديل/حذف** | ✅ مكتمل | إجراءات تعديل + حذف لأسعار المنتجات: `PUT`/`DELETE` على `/api/products/[id]` (محمية + Zod)، نموذج تعديل (مودال) يملأ البيانات المسبقاً ويحفظ التغييرات، حذف بتأكيد من خطوتين، تحديث الجدول بعد كل عملية. حذف المنتج يحذف مبيعاته تلقائياً (FK `onDelete: cascade`) |
 | **M10 — `/totalOfHobani` تعديل/حذف** | ✅ مكتمل | توسيع صفوف الإجمالي (يوم+فترة) إلى سجلات فردية: زر عين يعرض سجلات الدخل في مودال (دخل/نوع الكرت/العدد/الوقت/الموظف) مع تعديل/حذف لكل سجل، وحذف المجموعة كاملة بتأكيد من خطوتين. `GET`/`DELETE` على `/api/hobani/income` (سجلات اليوم/الفترة + حذف مجموعة) + `PUT`/`DELETE` على `/api/hobani/income/[id]` (محمية + Zod)، نموذج `HobaniIncomeForm` يدعم وضع التعديل (`initialData`) |
+| **M11 — `/totalOfbalence` تعديل/حذف** | ✅ مكتمل | إجراءات تعديل + حذف لعمليات شحن الرصيد: `PUT`/`DELETE` على `/api/balance/charge/[id]` (محمية + Zod + 404)، نموذج `BalanceChargeForm` يدعم وضع التعديل (`initialData` يملأ المزود/المبلغ/الملاحظات)، حذف بتأكيد من خطوتين داخل الجدول، تحديث الإجمالي/العدد مباشرة بعد كل عملية |
 
 **التحقق (Production build + خادم حي):**
 - `POST /api/auth/sign-in/username` (admin/admin) → 200 + توكن + `celia.session_token` (HttpOnly)
@@ -107,6 +108,7 @@ Login (Auth) → Authorization (RBAC)
   api/dashboard/transfers/route.ts # GET إحصائيات التحويلات (محمي)
   api/hobani/income/route.ts   # POST حفظ دخل الحوباني (محمي + Zod)
   api/balance/charge/route.ts  # POST إضافة شحن رصيد (محمي + Zod) / GET سجل العمليات
+  api/balance/charge/[id]/route.ts # PUT تعديل / DELETE حذف عملية شحن (محمي + Zod + 404)
   api/products/route.ts        # GET قائمة المنتجات / POST إنشاء (محمي + Zod)
   api/products/[id]/route.ts   # PUT تعديل / DELETE حذف منتج (محمي + Zod)
   api/agent/register/route.ts  # POST تسجيل وكيل (يُصدر apiKey لمرة واحدة)
@@ -139,8 +141,8 @@ proxy.ts                   # Next 16 Proxy — حماية/توجيه الجلس�
     dashboard/dashboard-shell.tsx   # عميل — Shell عام (Sidebar + Topbar + Breadcrumb + محتوى/أطفال)
   hobani/hobani-income-form.tsx   # عميل — نموذج دخل الحوباني (Zod + رسائل نجاح/خطأ)
   hobani/hobani-totals-table.tsx  # عميل — جدول اجمالي الحوباني
-  balance/balance-charge-form.tsx # عميل — نموذج شحن الرصيد (مزود/مبلغ/ملاحظات)
-  balance/balance-totals-view.tsx # عميل — نموذج الشحن + سجل عمليات الشحن (جدول + تحديث مباشر)
+  balance/balance-charge-form.tsx # عميل — نموذج شحن الرصيد (مزود/مبلغ/ملاحظات + وضع تعديل initialData)
+  balance/balance-totals-view.tsx # عميل — نموذج الشحن + سجل عمليات الشحن (جدول + تعديل/حذف + تحديث مباشر)
   products/product-price-form.tsx # عميل — نموذج إضافة/تعديل سعر منتج (initialData → PUT)
   products/product-prices-view.tsx # عميل — جدول الأسعار + إجراءات تعديل/حذف (مودال + تأكيد)
     income/income-summary-view.tsx  # عميل — ملخص الدخل (يومي/أسبوعي)

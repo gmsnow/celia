@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Banknote, CheckCircle2, Smartphone, StickyNote, Wallet, X, XCircle } from "lucide-react";
+import { Banknote, CheckCircle2, Pencil, Smartphone, StickyNote, Wallet, X, XCircle } from "lucide-react";
 import { BALANCE_PROVIDERS, createBalanceChargeSchema } from "@/lib/balance/charge";
+import type { BalanceChargeRow } from "@/lib/balance/queries";
 import { useLocale } from "@/lib/i18n/locale-provider";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
@@ -23,15 +24,18 @@ const textareaClassName =
   "flex min-h-28 w-full rounded-lg border border-input bg-card px-3.5 py-3 text-sm text-foreground shadow-sm transition-colors duration-150 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60";
 
 interface BalanceChargeFormProps {
+  initialData?: BalanceChargeRow | null;
   onSuccess?: () => void;
   onClose?: () => void;
 }
 
-export function BalanceChargeForm({ onSuccess, onClose }: BalanceChargeFormProps) {
+export function BalanceChargeForm({ initialData, onSuccess, onClose }: BalanceChargeFormProps) {
   const { locale, t } = useLocale();
-  const [provider, setProvider] = useState("");
-  const [amount, setAmount] = useState("");
-  const [notes, setNotes] = useState("");
+  const bt = t.balanceTotals;
+  const isEdit = !!initialData;
+  const [provider, setProvider] = useState(initialData?.provider ?? "");
+  const [amount, setAmount] = useState(initialData?.amount != null ? String(initialData.amount) : "");
+  const [notes, setNotes] = useState(initialData?.notes ?? "");
   const [errors, setErrors] = useState<FieldErrors>({});
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -55,18 +59,24 @@ export function BalanceChargeForm({ onSuccess, onClose }: BalanceChargeFormProps
     setLoading(true);
 
     try {
-      const res = await fetch("/api/balance/charge", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept-Language": locale,
+      const res = await fetch(
+        initialData ? `/api/balance/charge/${initialData.id}` : "/api/balance/charge",
+        {
+          method: initialData ? "PUT" : "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept-Language": locale,
+          },
+          body: JSON.stringify(result.data),
         },
-        body: JSON.stringify(result.data),
-      });
+      );
       const data = (await res.json()) as { message?: string; error?: string };
 
       if (res.ok) {
-        setMessage({ type: "success", text: data.message ?? t.balance.successMessage });
+        setMessage({
+          type: "success",
+          text: data.message ?? (isEdit ? bt.updatedMessage : t.balance.successMessage),
+        });
         setProvider("");
         setAmount("");
         setNotes("");
@@ -88,11 +98,17 @@ export function BalanceChargeForm({ onSuccess, onClose }: BalanceChargeFormProps
         style={{ backgroundImage: headerGradient }}
       >
         <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-white/20 shadow-inner">
-          <Wallet className="size-6" aria-hidden="true" />
+          {isEdit ? (
+            <Pencil className="size-6" aria-hidden="true" />
+          ) : (
+            <Wallet className="size-6" aria-hidden="true" />
+          )}
         </div>
         <div>
-          <h2 className="text-base font-extrabold">{t.balance.title}</h2>
-          <p className="text-xs font-medium text-white/80">{t.balance.subtitle}</p>
+          <h2 className="text-base font-extrabold">{isEdit ? bt.editTitle : t.balance.title}</h2>
+          <p className="text-xs font-medium text-white/80">
+            {isEdit ? bt.editSubtitle : t.balance.subtitle}
+          </p>
         </div>
         {onClose && (
           <button
@@ -209,7 +225,7 @@ export function BalanceChargeForm({ onSuccess, onClose }: BalanceChargeFormProps
             </Button>
             <Button type="submit" variant="success" size="lg" className="w-full sm:w-auto" loading={loading}>
               <Banknote className="size-4" aria-hidden="true" />
-              {loading ? t.balance.saving : t.balance.save}
+              {loading ? t.balance.saving : isEdit ? bt.saveChanges : t.balance.save}
             </Button>
           </div>
         </div>

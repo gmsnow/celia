@@ -1,17 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Plus, RefreshCw } from "lucide-react";
-import type { BalanceChargesSummary } from "@/lib/balance/queries";
+import { Check, Pencil, Plus, RefreshCw, Trash2, X, XCircle } from "lucide-react";
+import type { BalanceChargeRow, BalanceChargesSummary } from "@/lib/balance/queries";
 import { formatCurrency, formatDateTime, formatNumber } from "@/lib/format";
 import { useLocale } from "@/lib/i18n/locale-provider";
 import { BalanceChargeForm } from "@/components/balance/balance-charge-form";
 import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/cn";
 
 interface BalanceTotalsViewProps {
   initialSummary: BalanceChargesSummary;
 }
+
+const actionButton =
+  "inline-flex size-8 items-center justify-center rounded-lg border border-border text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-50";
 
 export function BalanceTotalsView({ initialSummary }: BalanceTotalsViewProps) {
   const { t, locale } = useLocale();
@@ -20,24 +24,28 @@ export function BalanceTotalsView({ initialSummary }: BalanceTotalsViewProps) {
   const [summary, setSummary] = useState<BalanceChargesSummary>(initialSummary);
   const [loading, setLoading] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<BalanceChargeRow | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ type: "error"; text: string } | null>(null);
 
   useEffect(() => {
-    document.body.style.overflow = formOpen ? "hidden" : "";
+    document.body.style.overflow = formOpen || editing ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
     };
-  }, [formOpen]);
+  }, [formOpen, editing]);
 
   useEffect(() => {
-    if (!formOpen) return;
+    if (!formOpen && !editing) return;
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         setFormOpen(false);
+        setEditing(null);
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [formOpen]);
+  }, [formOpen, editing]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -54,11 +62,39 @@ export function BalanceTotalsView({ initialSummary }: BalanceTotalsViewProps) {
 
   function closeForm() {
     setFormOpen(false);
+    setEditing(null);
+  }
+
+  function openEdit(row: BalanceChargeRow) {
+    setMessage(null);
+    setEditing(row);
   }
 
   function handleFormSuccess() {
     void refresh();
     closeForm();
+  }
+
+  async function confirmDelete(row: BalanceChargeRow) {
+    setLoading(true);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/balance/charge/${row.id}`, {
+        method: "DELETE",
+        headers: { "Accept-Language": locale },
+      });
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) {
+        setMessage({ type: "error", text: data?.error ?? bt.deleteError });
+      } else {
+        setPendingDeleteId(null);
+        await refresh();
+      }
+    } catch {
+      setMessage({ type: "error", text: bt.deleteError });
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -133,6 +169,57 @@ export function BalanceTotalsView({ initialSummary }: BalanceTotalsViewProps) {
               </span>
             ),
           },
+          {
+            header: bt.actions,
+            className: "text-end",
+            cell: (row) =>
+              pendingDeleteId === row.id ? (
+                <div className="flex items-center justify-end gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => void confirmDelete(row)}
+                    disabled={loading}
+                    title={bt.confirm}
+                    className={cn(actionButton, "border-success/40 text-success hover:bg-success/10")}
+                  >
+                    <Check className="size-4" aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPendingDeleteId(null)}
+                    disabled={loading}
+                    title={bt.cancel}
+                    className={cn(actionButton, "border-destructive/40 text-destructive hover:bg-destructive/10")}
+                  >
+                    <X className="size-4" aria-hidden="true" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-end gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => openEdit(row)}
+                    disabled={loading}
+                    title={bt.edit}
+                    className={actionButton}
+                  >
+                    <Pencil className="size-4" aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPendingDeleteId(row.id);
+                      setMessage(null);
+                    }}
+                    disabled={loading}
+                    title={bt.delete}
+                    className={cn(actionButton, "text-destructive hover:bg-destructive/10")}
+                  >
+                    <Trash2 className="size-4" aria-hidden="true" />
+                  </button>
+                </div>
+              ),
+          },
         ]}
       />
 
@@ -149,7 +236,19 @@ export function BalanceTotalsView({ initialSummary }: BalanceTotalsViewProps) {
         </Button>
       </footer>
 
-      {formOpen && (
+      {message && (
+        <div
+          role="alert"
+          className={cn(
+            "flex items-start gap-2.5 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive",
+          )}
+        >
+          <XCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          <span>{message.text}</span>
+        </div>
+      )}
+
+      {(formOpen || editing) && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
           onClick={closeForm}
@@ -160,7 +259,12 @@ export function BalanceTotalsView({ initialSummary }: BalanceTotalsViewProps) {
             className="max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-2xl shadow-xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <BalanceChargeForm onSuccess={handleFormSuccess} onClose={closeForm} />
+            <BalanceChargeForm
+              key={editing?.id ?? "new"}
+              initialData={editing}
+              onSuccess={handleFormSuccess}
+              onClose={closeForm}
+            />
           </div>
         </div>
       )}
