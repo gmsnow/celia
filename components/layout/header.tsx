@@ -122,7 +122,7 @@ export function Header({ user, onToggleSidebar }: HeaderProps) {
 
         <nav className="hidden items-center md:flex" aria-label={t.header.quickLinks}>
           <Link
-            href="/dashboard"
+            href="/"
             className="rounded-lg px-3 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             {t.header.home}
