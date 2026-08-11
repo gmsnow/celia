@@ -1,4 +1,4 @@
-import { requireUser } from "@/lib/session";
+import { requirePagePermission } from "@/lib/session";
 import { getWeeklyIncomeStats } from "@/lib/income/weekly";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { IncomeSummaryView } from "@/components/income/income-summary-view";
@@ -11,14 +11,14 @@ export const metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function WeeklyIncomePage() {
-  const session = await requireUser();
+  const { session, permissions } = await requirePagePermission("weekly_income");
   const user = session.user;
 
   const stats = await getWeeklyIncomeStats();
 
   return (
     <DashboardShell
-      user={{ name: user.name, role: user.role }}
+      user={{ name: user.name, role: user.role, permissions }}
       titleKey="incomeView.title"
     >
       <div className="relative flex w-full flex-col overflow-hidden min-h-[calc(100dvh-14rem)]">

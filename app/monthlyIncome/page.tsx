@@ -1,4 +1,4 @@
-import { requireUser } from "@/lib/session";
+import { requirePagePermission } from "@/lib/session";
 import { getMonthlyIncomeStats } from "@/lib/income/monthly";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { MonthlyIncomeView } from "@/components/income/monthly-income-view";
@@ -9,14 +9,14 @@ export const metadata = {
 };
 
 export default async function MonthlyIncomePage() {
-  const session = await requireUser();
+  const { session, permissions } = await requirePagePermission("monthly_income");
   const user = session.user;
 
   const stats = await getMonthlyIncomeStats();
 
   return (
     <DashboardShell
-      user={{ name: user.name, role: user.role }}
+      user={{ name: user.name, role: user.role, permissions }}
       titleKey="sidebar.monthlyIncome"
     >
       <div className="relative flex w-full flex-col overflow-hidden min-h-[calc(100dvh-14rem)]">

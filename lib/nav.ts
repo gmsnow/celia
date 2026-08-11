@@ -27,11 +27,13 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
+import type { PermissionKey } from "@/lib/users/permissions";
 
 export interface SidebarLink {
   label: string;
   href?: string;
   icon?: LucideIcon;
+  permission?: PermissionKey | PermissionKey[];
   children?: SidebarLink[];
 }
 
@@ -48,7 +50,7 @@ export function getSidebarSections(t: Dictionary): SidebarSection[] {
         {
           label: s.dashboard,
           icon: Gauge,
-          children: [{ label: s.dashboard, href: "/", icon: LayoutDashboard }],
+          children: [{ label: s.dashboard, href: "/", icon: LayoutDashboard, permission: "dashboard" }],
         },
         {
           label: s.transferSystem,
@@ -64,40 +66,40 @@ export function getSidebarSections(t: Dictionary): SidebarSection[] {
           label: s.income,
           icon: Coins,
           children: [
-            { label: s.dailyIncome, href: "/dailyIncome", icon: CalendarDays },
-            { label: s.weeklyIncome, href: "/weeklyIncome", icon: CalendarRange },
-            { label: s.monthlyIncome, href: "/monthlyIncome", icon: Calendar },
+            { label: s.dailyIncome, href: "/dailyIncome", icon: CalendarDays, permission: "daily_income" },
+            { label: s.weeklyIncome, href: "/weeklyIncome", icon: CalendarRange, permission: "weekly_income" },
+            { label: s.monthlyIncome, href: "/monthlyIncome", icon: Calendar, permission: "monthly_income" },
           ],
         },
         {
           label: s.incomeTotals,
           icon: List,
           children: [
-            { label: s.totalHobani, href: "/totalOfHobani", icon: Network },
-            { label: s.totalBalanceSales, href: "/totalOfbalence", icon: Phone },
-            { label: s.totalSales, href: "/totalOfSelles", icon: ShoppingCart },
-            { label: s.shifts, href: "/shifts", icon: Sunrise },
+            { label: s.totalHobani, href: "/totalOfHobani", icon: Network, permission: "total_hobani_income" },
+            { label: s.totalBalanceSales, href: "/totalOfbalence", icon: Phone, permission: "total_recharge" },
+            { label: s.totalSales, href: "/totalOfSelles", icon: ShoppingCart, permission: "total_sales" },
+            { label: s.shifts, href: "/shifts", icon: Sunrise, permission: ["morning_income", "evening_income"] },
           ],
         },
         {
           label: s.sales,
           icon: Banknote,
           children: [
-            { label: s.viewAllSales, href: "/allProduct", icon: List },
+            { label: s.viewAllSales, href: "/allProduct", icon: List, permission: "sold_products" },
           ],
         },
         {
           label: s.expenses,
           icon: Wallet,
           children: [
-            { label: s.viewExpenses, href: "/showExpenses", icon: Layers },
+            { label: s.viewExpenses, href: "/showExpenses", icon: Layers, permission: "view_expenses" },
           ],
         },
         {
           label: s.advances,
           icon: CircleOff,
           children: [
-            { label: s.viewAdvances, href: "/showAdvance", icon: FolderMinus },
+            { label: s.viewAdvances, href: "/showAdvance", icon: FolderMinus, permission: "view_loans" },
           ],
         },
       ],
@@ -109,12 +111,12 @@ export function getSidebarSections(t: Dictionary): SidebarSection[] {
           label: s.pricingSystem,
           icon: Tags,
           children: [
-            { label: s.copyPrice, href: "/embedcopyPrice", icon: Receipt },
+            { label: s.copyPrice, href: "/embedcopyPrice", icon: Receipt, permission: "set_copy_price" },
             {
               label: s.productPrices,
               icon: ShoppingBag,
               children: [
-                { label: s.productPrices, href: "/embedProductPrice", icon: Circle },
+                { label: s.productPrices, href: "/embedProductPrice", icon: Circle, permission: "set_product_price" },
               ],
             },
           ],
@@ -128,13 +130,13 @@ export function getSidebarSections(t: Dictionary): SidebarSection[] {
           label: s.employeePermissions,
           icon: Users,
           children: [
-            { label: s.manageEmployees, href: "/employees", icon: UsersRound },
-            { label: s.manageUsers, href: "/users", icon: Circle },
+            { label: s.manageEmployees, href: "/employees", icon: UsersRound, permission: "manage_roles" },
+            { label: s.manageUsers, href: "/users", icon: Circle, permission: "manage_roles" },
             {
               label: s.employeeSalaries,
               icon: Banknote,
               children: [
-                { label: s.editSalaries, href: "/salaryPage", icon: Circle },
+                { label: s.editSalaries, href: "/salaryPage", icon: Circle, permission: "manage_salaries" },
               ],
             },
           ],

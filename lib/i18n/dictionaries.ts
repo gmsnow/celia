@@ -144,6 +144,13 @@ const ar = {
       secure: "حماية مشفرة وصلاحيات تحكم كاملة",
     },
   },
+  forbidden: {
+    title: "لا تملك الصلاحية",
+    message: "عذراً، لا تملك صلاحية الوصول إلى هذه الصفحة.",
+    contactAdmin: "تواصل مع مدير النظام لطلب الصلاحيات.",
+    backHome: "العودة إلى الرئيسية",
+    signOut: "تسجيل الخروج",
+  },
   roles: {
     admin: "مدير النظام",
     manager: "مدير",
@@ -1042,6 +1049,13 @@ const en: Dictionary = {
       reports: "Accurate reports and full tracking for every transaction",
       secure: "Encrypted security and full permission control",
     },
+  },
+  forbidden: {
+    title: "No Access",
+    message: "Sorry, you do not have permission to access this page.",
+    contactAdmin: "Contact the system admin to request access.",
+    backHome: "Back to home",
+    signOut: "Sign out",
   },
   roles: {
     admin: "System Admin",

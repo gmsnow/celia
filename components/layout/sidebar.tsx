@@ -5,22 +5,23 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronDown, X } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { getSidebarSections, type SidebarLink } from "@/lib/nav";
+import { getSidebarSections, type SidebarLink, type SidebarSection } from "@/lib/nav";
 import { useLocale } from "@/lib/i18n/locale-provider";
 import { Logo } from "@/components/brand/logo";
 
 interface SidebarProps {
   open: boolean;
   onClose: () => void;
+  permissions?: string[];
 }
 
-export function Sidebar({ open, onClose }: SidebarProps) {
+export function Sidebar({ open, onClose, permissions = [] }: SidebarProps) {
   const pathname = usePathname();
   const { t } = useLocale();
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [toggled, setToggled] = useState<Set<string>>(() => new Set());
 
-  const sections = getSidebarSections(t);
+  const sections = filterSections(getSidebarSections(t), permissions);
 
   function toggle(label: string) {
     setExpanded((prev) => {
@@ -179,4 +180,33 @@ function TreeItem({ link, depth, expanded, toggled, onToggle, pathname }: TreeIt
 function containsActive(link: SidebarLink, pathname: string): boolean {
   if (link.href === pathname) return true;
   return !!link.children?.some((child) => containsActive(child, pathname));
+}
+
+function isLinkAllowed(link: SidebarLink, permissions: string[]): boolean {
+  if (!link.permission) return true;
+  const keys = Array.isArray(link.permission) ? link.permission : [link.permission];
+  return keys.some((key) => permissions.includes(key));
+}
+
+function filterLinks(links: SidebarLink[], permissions: string[]): SidebarLink[] {
+  const filtered: SidebarLink[] = [];
+  for (const link of links) {
+    if (link.children && link.children.length > 0) {
+      const children = filterLinks(link.children, permissions);
+      if (link.href || children.length > 0) {
+        filtered.push({ ...link, children });
+      }
+      continue;
+    }
+    if (isLinkAllowed(link, permissions)) {
+      filtered.push(link);
+    }
+  }
+  return filtered;
+}
+
+function filterSections(sections: SidebarSection[], permissions: string[]): SidebarSection[] {
+  return sections
+    .map((section) => ({ ...section, links: filterLinks(section.links, permissions) }))
+    .filter((section) => section.links.length > 0);
 }

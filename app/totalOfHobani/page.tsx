@@ -1,4 +1,4 @@
-import { requireUser } from "@/lib/session";
+import { requirePagePermission } from "@/lib/session";
 import { getHobaniTotals } from "@/lib/hobani/totals";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { HobaniTotalsView } from "@/components/hobani/hobani-totals-view";
@@ -9,14 +9,14 @@ export const metadata = {
 };
 
 export default async function TotalOfHobaniPage() {
-  const session = await requireUser();
+  const { session, permissions } = await requirePagePermission("total_hobani_income");
   const user = session.user;
 
   const rows = await getHobaniTotals();
 
   return (
     <DashboardShell
-      user={{ name: user.name, role: user.role }}
+      user={{ name: user.name, role: user.role, permissions }}
       titleKey="sidebar.totalHobani"
     >
       <div className="relative flex w-full flex-col overflow-hidden min-h-[calc(100dvh-14rem)]">

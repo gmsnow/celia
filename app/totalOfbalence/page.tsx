@@ -1,4 +1,4 @@
-import { requireUser } from "@/lib/session";
+import { requirePagePermission } from "@/lib/session";
 import { getBalanceCharges } from "@/lib/balance/queries";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { BalanceTotalsView } from "@/components/balance/balance-totals-view";
@@ -9,14 +9,14 @@ export const metadata = {
 };
 
 export default async function TotalOfbalencePage() {
-  const session = await requireUser();
+  const { session, permissions } = await requirePagePermission("total_recharge");
   const user = session.user;
 
   const summary = await getBalanceCharges();
 
   return (
     <DashboardShell
-      user={{ name: user.name, role: user.role }}
+      user={{ name: user.name, role: user.role, permissions }}
       titleKey="sidebar.totalBalanceSales"
     >
       <div className="relative flex w-full flex-col overflow-hidden min-h-[calc(100dvh-14rem)]">

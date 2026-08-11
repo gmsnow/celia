@@ -14,7 +14,7 @@ export interface BreadcrumbItem {
 }
 
 interface DashboardShellProps {
-  user: { name: string; role?: string | null };
+  user: { name: string; role?: string | null; permissions?: string[] };
   todayLabel?: string;
   title?: string;
   titleKey?: string;
@@ -63,7 +63,7 @@ export function DashboardShell({
 
   return (
     <div className="flex min-h-dvh">
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} permissions={user.permissions} />
 
       <div className="flex min-w-0 flex-1 flex-col">
         <Header user={user} onToggleSidebar={() => setSidebarOpen(true)} />

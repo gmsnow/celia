@@ -1,4 +1,4 @@
-import { requireUser } from "@/lib/session";
+import { requirePagePermission } from "@/lib/session";
 import { getAllProductSales } from "@/lib/products/queries";
 import { getProductOptions } from "@/lib/sales/products";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
@@ -12,14 +12,14 @@ export const metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function AllProductPage() {
-  const session = await requireUser();
+  const { session, permissions } = await requirePagePermission("sold_products");
   const user = session.user;
 
   const [rows, products] = await Promise.all([getAllProductSales(), getProductOptions()]);
 
   return (
     <DashboardShell
-      user={{ name: user.name, role: user.role }}
+      user={{ name: user.name, role: user.role, permissions }}
       titleKey="sidebar.viewAllSales"
     >
       <div className="relative flex w-full flex-col overflow-hidden">

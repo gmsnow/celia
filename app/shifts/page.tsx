@@ -1,4 +1,4 @@
-import { requireUser } from "@/lib/session";
+import { requirePagePermission } from "@/lib/session";
 import { getShiftsStats } from "@/lib/income/shifts";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { ShiftsView } from "@/components/income/shifts-view";
@@ -11,13 +11,13 @@ export const metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function ShiftsPage() {
-  const session = await requireUser();
+  const { session, permissions } = await requirePagePermission("morning_income", "evening_income");
   const user = session.user;
 
   const stats = await getShiftsStats();
 
   return (
-    <DashboardShell user={{ name: user.name, role: user.role }} titleKey="sidebar.shifts">
+    <DashboardShell user={{ name: user.name, role: user.role, permissions }} titleKey="sidebar.shifts">
       <div className="relative flex w-full flex-col overflow-hidden">
         <div
           className="pointer-events-none absolute -top-10 -end-16 size-60 rounded-full bg-primary/10 blur-3xl"

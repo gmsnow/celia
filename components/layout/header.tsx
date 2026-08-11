@@ -28,7 +28,7 @@ import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 
 interface HeaderProps {
-  user: { name: string; role?: string | null };
+  user: { name: string; role?: string | null; permissions?: string[] };
   onToggleSidebar: () => void;
 }
 
@@ -82,6 +82,12 @@ export function Header({ user, onToggleSidebar }: HeaderProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
+  const canAccessHome =
+    user.role === "admin" ||
+    !user.permissions ||
+    user.permissions.length === 0 ||
+    user.permissions.includes("dashboard");
+
   useEffect(() => {
     function onFullscreenChange() {
       setIsFullscreen(Boolean(document.fullscreenElement));
@@ -121,12 +127,14 @@ export function Header({ user, onToggleSidebar }: HeaderProps) {
         </button>
 
         <nav className="hidden items-center md:flex" aria-label={t.header.quickLinks}>
-          <Link
-            href="/"
-            className="rounded-lg px-3 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            {t.header.home}
-          </Link>
+          {canAccessHome && (
+            <Link
+              href="/"
+              className="rounded-lg px-3 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              {t.header.home}
+            </Link>
+          )}
           <a
             href={SUPPORT_URL}
             target="_blank"
