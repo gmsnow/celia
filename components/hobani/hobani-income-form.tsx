@@ -7,6 +7,7 @@ import {
   Clock,
   CreditCard,
   Layers,
+  Pencil,
   Wallet,
   X,
   XCircle,
@@ -17,6 +18,7 @@ import {
   createHobaniIncomeSchema,
   hobaniPeriodLabel,
 } from "@/lib/hobani/income";
+import type { HobaniIncomeRecord } from "@/lib/hobani/totals";
 import { useLocale } from "@/lib/i18n/locale-provider";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
@@ -36,16 +38,24 @@ const selectClassName =
   "flex h-11 w-full rounded-lg border border-input bg-card px-3.5 text-sm text-foreground shadow-sm transition-colors duration-150 focus-visible:outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60 appearance-none";
 
 interface HobaniIncomeFormProps {
+  initialData?: HobaniIncomeRecord | null;
   onSuccess?: () => void;
   onClose?: () => void;
 }
 
-export function HobaniIncomeForm({ onSuccess, onClose }: HobaniIncomeFormProps) {
+export function HobaniIncomeForm({ initialData, onSuccess, onClose }: HobaniIncomeFormProps) {
   const { locale, t } = useLocale();
-  const [income, setIncome] = useState("");
-  const [period, setPeriod] = useState("");
-  const [cardType, setCardType] = useState("");
-  const [quantity, setQuantity] = useState("");
+  const isEdit = !!initialData;
+  const [income, setIncome] = useState(
+    initialData?.income != null ? String(initialData.income) : "",
+  );
+  const [period, setPeriod] = useState(initialData?.period ?? "");
+  const [cardType, setCardType] = useState(
+    initialData?.cardType != null ? String(initialData.cardType) : "",
+  );
+  const [quantity, setQuantity] = useState(
+    initialData?.quantity != null ? String(initialData.quantity) : "",
+  );
   const [errors, setErrors] = useState<FieldErrors>({});
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -71,8 +81,9 @@ export function HobaniIncomeForm({ onSuccess, onClose }: HobaniIncomeFormProps) 
     setLoading(true);
 
     try {
-      const res = await fetch("/api/hobani/income", {
-        method: "POST",
+      const url = initialData ? `/api/hobani/income/${initialData.id}` : "/api/hobani/income";
+      const res = await fetch(url, {
+        method: initialData ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
           "Accept-Language": locale,
@@ -82,11 +93,16 @@ export function HobaniIncomeForm({ onSuccess, onClose }: HobaniIncomeFormProps) 
       const data = (await res.json()) as { message?: string; error?: string };
 
       if (res.ok) {
-        setMessage({ type: "success", text: data.message ?? t.hobani.successMessage });
-        setIncome("");
-        setPeriod("");
-        setCardType("");
-        setQuantity("");
+        setMessage({
+          type: "success",
+          text: data.message ?? (isEdit ? t.hobani.updatedMessage : t.hobani.successMessage),
+        });
+        if (!isEdit) {
+          setIncome("");
+          setPeriod("");
+          setCardType("");
+          setQuantity("");
+        }
         onSuccess?.();
       } else {
         setMessage({ type: "error", text: data.error ?? t.hobani.invalidData });
@@ -105,11 +121,19 @@ export function HobaniIncomeForm({ onSuccess, onClose }: HobaniIncomeFormProps) 
         style={{ backgroundImage: headerGradient }}
       >
         <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-white/20 shadow-inner">
-          <Wallet className="size-6" aria-hidden="true" />
+          {isEdit ? (
+            <Pencil className="size-6" aria-hidden="true" />
+          ) : (
+            <Wallet className="size-6" aria-hidden="true" />
+          )}
         </div>
         <div>
-          <h2 className="text-base font-extrabold">{t.hobani.title}</h2>
-          <p className="text-xs font-medium text-white/80">{t.hobani.subtitle}</p>
+          <h2 className="text-base font-extrabold">
+            {isEdit ? t.hobani.editTitle : t.hobani.title}
+          </h2>
+          <p className="text-xs font-medium text-white/80">
+            {isEdit ? t.hobani.editSubtitle : t.hobani.subtitle}
+          </p>
         </div>
         {onClose && (
           <button
@@ -262,7 +286,7 @@ export function HobaniIncomeForm({ onSuccess, onClose }: HobaniIncomeFormProps) 
             </Button>
             <Button type="submit" variant="success" size="lg" className="w-full sm:w-auto" loading={loading}>
               <CreditCard className="size-4" aria-hidden="true" />
-              {loading ? t.hobani.saving : t.hobani.save}
+              {loading ? t.hobani.saving : isEdit ? t.hobani.saveChanges : t.hobani.save}
             </Button>
           </div>
         </div>
