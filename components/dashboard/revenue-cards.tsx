@@ -20,12 +20,15 @@ interface RevenueCardProps {
   title: string;
   compareLabel: string;
   current: number;
+  previous: number;
   changePercent: number;
 }
 
-function RevenueCard({ title, compareLabel, current, changePercent }: RevenueCardProps) {
+function RevenueCard({ title, compareLabel, current, previous, changePercent }: RevenueCardProps) {
+  const { t } = useLocale();
   const isUp = changePercent >= 0;
   const TrendIcon = isUp ? TrendingUp : TrendingDown;
+  const hasBaseline = previous > 0;
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
@@ -34,15 +37,21 @@ function RevenueCard({ title, compareLabel, current, changePercent }: RevenueCar
         {formatCurrency(current)}
       </p>
       <div className="mt-3 flex items-center gap-2">
-        <span
-          className={cn(
-            "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold",
-            isUp ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive",
-          )}
-        >
-          <TrendIcon className="size-3.5" aria-hidden="true" />
-          {formatPercentSigned(changePercent)}
-        </span>
+        {hasBaseline ? (
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold",
+              isUp ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive",
+            )}
+          >
+            <TrendIcon className="size-3.5" aria-hidden="true" />
+            {formatPercentSigned(changePercent)}
+          </span>
+        ) : (
+          <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-bold text-muted-foreground">
+            {current > 0 ? t.dashboard.revenueCards.newLabel : "—"}
+          </span>
+        )}
         <span className="text-xs font-medium text-muted-foreground">{compareLabel}</span>
       </div>
     </div>
@@ -69,6 +78,7 @@ export function RevenueCards({ revenue }: RevenueCardsProps) {
             title={item.title}
             compareLabel={item.compareLabel}
             current={period.current}
+            previous={period.previous}
             changePercent={period.changePercent}
           />
         );

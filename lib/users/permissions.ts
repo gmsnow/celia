@@ -65,10 +65,6 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
   },
 ];
 
-export function buildDefaultPermissions(): Record<PermissionKey, boolean> {
-  const result = {} as Record<PermissionKey, boolean>;
-  for (const key of PERMISSION_KEYS) {
-    result[key] = true;
-  }
-  return result;
+export function isPermissionKey(value: string): value is PermissionKey {
+  return (PERMISSION_KEYS as readonly string[]).includes(value);
 }

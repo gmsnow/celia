@@ -141,7 +141,12 @@ export function LoginForm() {
         </label>
       </div>
 
-      <Button type="submit" size="lg" className="w-full" loading={loading}>
+      <Button
+        type="submit"
+        size="lg"
+        className="w-full bg-gradient-to-l from-teal-500 via-teal-500 to-indigo-500 text-white shadow-lg shadow-teal-500/25 hover:from-teal-400 hover:via-teal-400 hover:to-indigo-400"
+        loading={loading}
+      >
         {loading ? t.login.signingIn : t.login.signIn}
       </Button>
     </form>

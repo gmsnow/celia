@@ -8,6 +8,7 @@ import {
   CreditCard,
   Layers,
   Wallet,
+  X,
   XCircle,
 } from "lucide-react";
 import {
@@ -34,7 +35,12 @@ const headerGradient = `linear-gradient(135deg, color-mix(in srgb, var(--primary
 const selectClassName =
   "flex h-11 w-full rounded-lg border border-input bg-card px-3.5 text-sm text-foreground shadow-sm transition-colors duration-150 focus-visible:outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60 appearance-none";
 
-export function HobaniIncomeForm({ onSuccess }: { onSuccess?: () => void }) {
+interface HobaniIncomeFormProps {
+  onSuccess?: () => void;
+  onClose?: () => void;
+}
+
+export function HobaniIncomeForm({ onSuccess, onClose }: HobaniIncomeFormProps) {
   const { locale, t } = useLocale();
   const [income, setIncome] = useState("");
   const [period, setPeriod] = useState("");
@@ -105,6 +111,17 @@ export function HobaniIncomeForm({ onSuccess }: { onSuccess?: () => void }) {
           <h2 className="text-base font-extrabold">{t.hobani.title}</h2>
           <p className="text-xs font-medium text-white/80">{t.hobani.subtitle}</p>
         </div>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="ms-auto rounded-lg p-1.5 text-white/80 transition-colors hover:bg-white/15 hover:text-white disabled:opacity-50"
+            aria-label={t.hobani.cancel}
+          >
+            <X className="size-5" aria-hidden="true" />
+          </button>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} noValidate className="flex flex-1 flex-col space-y-5 p-5 sm:p-6">
@@ -232,10 +249,22 @@ export function HobaniIncomeForm({ onSuccess }: { onSuccess?: () => void }) {
           <p className="hidden text-xs text-muted-foreground sm:block">
             {t.hobani.saveHint}
           </p>
-          <Button type="submit" size="lg" className="w-full sm:w-auto" loading={loading}>
-            <CreditCard className="size-4" aria-hidden="true" />
-            {loading ? t.hobani.saving : t.hobani.save}
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              onClick={onClose}
+              disabled={loading}
+            >
+              <X className="size-4" aria-hidden="true" />
+              {t.hobani.cancel}
+            </Button>
+            <Button type="submit" variant="success" size="lg" className="w-full sm:w-auto" loading={loading}>
+              <CreditCard className="size-4" aria-hidden="true" />
+              {loading ? t.hobani.saving : t.hobani.save}
+            </Button>
+          </div>
         </div>
       </form>
     </div>

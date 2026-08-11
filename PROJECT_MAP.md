@@ -1,7 +1,7 @@
 # PROJECT_MAP.md — Internet Café Management System (CelíA)
 
 > وثيقة الحالة الحية للمشروع. تُحدَّث بعد كل ميزة (بروتوكول State Sync).
-> آخر تحديث: 2026-08-10 (M0–M6 مكتملة + صفحة `/totalOfSelles` مبنية)
+> آخر تحديث: 2026-08-11 (M0–M8 مكتملة + إجراءات تعديل/حذف `/embedProductPrice`)
 
 ---
 
@@ -18,6 +18,7 @@
 | **M6 — نظام تحويلات العملاء** | ✅ مكتمل | نظام كامل: Windows Transfer Agent، أجهزة العملاء (USB/هاتف/SD/HDD/SSD)، نقل NAS→جهاز عبر robocopy، لوحة/إنشاء/نشط/سجل/أجهزة/تقارير/إعدادات، تتبع حقيقي (لا بيانات وهمية)، أمان (API keys للوكيل + تشفير كلمة مرور NAS + تحقق من المسارات) |
 | **M7 — `/totalOfSelles`** | ✅ مكتمل | صفحة عرض إجمالي دخل المبيعات: جداول منتجات حسب الفئة (اسم/إحصائيات دخل/نسبة دخل) + دونات نسخ/حوباني/مبيعات/شحن رصيد + قائمة المنتجات المباعة (حقيقية، بلا بيانات وهمية). جداول جديدة `products` + `product_sales` (migration `0010_white_warlock.sql`) |
 | **M8 — `/totalOfbalence`** | ✅ مكتمل | صفحة عرض إجمالي شحن التطبيقات: نموذج شحن الرصيد (نفس `/balenceSelles`) + جدول سجل عمليات الشحن (المزود/المبلغ/ملاحظات/الموظف/التاريخ) + إجمالي المبلغ، مع تحديث مباشر بعد كل عملية (GET `/api/balance/charge`) |
+| **M9 — `/embedProductPrice` تعديل/حذف** | ✅ مكتمل | إجراءات تعديل + حذف لأسعار المنتجات: `PUT`/`DELETE` على `/api/products/[id]` (محمية + Zod)، نموذج تعديل (مودال) يملأ البيانات المسبقاً ويحفظ التغييرات، حذف بتأكيد من خطوتين، تحديث الجدول بعد كل عملية. حذف المنتج يحذف مبيعاته تلقائياً (FK `onDelete: cascade`) |
 
 **التحقق (Production build + خادم حي):**
 - `POST /api/auth/sign-in/username` (admin/admin) → 200 + توكن + `celia.session_token` (HttpOnly)
@@ -105,6 +106,8 @@ Login (Auth) → Authorization (RBAC)
   api/dashboard/transfers/route.ts # GET إحصائيات التحويلات (محمي)
   api/hobani/income/route.ts   # POST حفظ دخل الحوباني (محمي + Zod)
   api/balance/charge/route.ts  # POST إضافة شحن رصيد (محمي + Zod) / GET سجل العمليات
+  api/products/route.ts        # GET قائمة المنتجات / POST إنشاء (محمي + Zod)
+  api/products/[id]/route.ts   # PUT تعديل / DELETE حذف منتج (محمي + Zod)
   api/agent/register/route.ts  # POST تسجيل وكيل (يُصدر apiKey لمرة واحدة)
   api/agent/heartbeat/route.ts # POST نبض الوكيل (رؤوس x-agent-id/x-agent-key) + قائمة المشاركات بالأسرار
   api/agent/devices/route.ts   # POST upsert أجهزة الوكيل (فصل غير المتصلة)
@@ -137,6 +140,8 @@ proxy.ts                   # Next 16 Proxy — حماية/توجيه الجلس�
   hobani/hobani-totals-table.tsx  # عميل — جدول اجمالي الحوباني
   balance/balance-charge-form.tsx # عميل — نموذج شحن الرصيد (مزود/مبلغ/ملاحظات)
   balance/balance-totals-view.tsx # عميل — نموذج الشحن + سجل عمليات الشحن (جدول + تحديث مباشر)
+  products/product-price-form.tsx # عميل — نموذج إضافة/تعديل سعر منتج (initialData → PUT)
+  products/product-prices-view.tsx # عميل — جدول الأسعار + إجراءات تعديل/حذف (مودال + تأكيد)
     income/income-summary-view.tsx  # عميل — ملخص الدخل (يومي/أسبوعي)
     income/daily-income-view.tsx    # عميل — الدخل اليومي
     income/monthly-income-view.tsx  # عميل — الدخل الشهري (دونات + جداول)
@@ -179,6 +184,8 @@ lib/
   income/daily.ts          # getDailyIncomeStats — دخل يومي
   income/weekly.ts         # getWeeklyIncomeStats — دخل أسبوعي
   sales/totals.ts          # getTotalSalesStats — اجمالي المبيعات (فئات + دونات + مبيعات)
+  products/queries.ts      # getProducts/getAllProductSales
+  products/product.ts      # createProductSchema (Zod) لإنشاء/تعديل المنتج
 drizzle/
   schema.ts                # user/session/account/verification + hobani_income + balance_charge + copy_records + products + product_sales + نظام التحويلات (transferAgents/Devices/Jobs/Items + nasShares + nasListing + auditLog)
   config.ts                # drizzle-kit pg

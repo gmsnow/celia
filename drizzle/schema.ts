@@ -23,6 +23,12 @@ export const users = pgTable("user", {
   role: text("role").notNull().default("employee"),
   username: text("username").unique(),
   displayUsername: text("display_username"),
+  phone: text("phone"),
+  isActive: boolean("is_active").notNull().default(true),
+  permissions: jsonb("permissions").$type<string[]>().notNull().default([]),
+  banned: boolean("banned").notNull().default(false),
+  banReason: text("ban_reason"),
+  banExpires: timestamp("ban_expires"),
   createdAt: timestamp("created_at").notNull(),
   updatedAt: timestamp("updated_at").notNull(),
 });

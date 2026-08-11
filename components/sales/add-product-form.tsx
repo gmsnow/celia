@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Banknote, CheckCircle2, Package, ShoppingBag, Tag, XCircle } from "lucide-react";
+import { Banknote, CheckCircle2, Package, ShoppingBag, Tag, X, XCircle } from "lucide-react";
 import { createProductSaleSchema } from "@/lib/sales/product-sale";
 import type { ProductOption } from "@/lib/sales/products";
+import type { ProductSaleRow } from "@/lib/products/queries";
 import { useLocale } from "@/lib/i18n/locale-provider";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
@@ -23,15 +24,34 @@ const selectClassName =
 
 interface AddProductFormProps {
   products: ProductOption[];
+  sale?: ProductSaleRow | null;
   onSuccess?: () => void;
+  onClose?: () => void;
 }
 
-export function AddProductForm({ products, onSuccess }: AddProductFormProps) {
+export function AddProductForm({ products, sale, onSuccess, onClose }: AddProductFormProps) {
   const { locale, t } = useLocale();
-  const [productId, setProductId] = useState("");
-  const [model, setModel] = useState("");
-  const [unitPrice, setUnitPrice] = useState("");
-  const [total, setTotal] = useState("");
+  const isEdit = !!sale;
+  const initialProduct = products[0];
+  const saleProduct = sale ? products.find((p) => p.id === sale.productId) : undefined;
+  const [productId, setProductId] = useState(sale?.productId ?? initialProduct?.id ?? "");
+  const [model, setModel] = useState(
+    saleProduct?.category ?? initialProduct?.category ?? "",
+  );
+  const [unitPrice, setUnitPrice] = useState(
+    sale
+      ? String(sale.unitPrice)
+      : initialProduct && initialProduct.price > 0
+        ? String(initialProduct.price)
+        : "",
+  );
+  const [total, setTotal] = useState(
+    sale
+      ? String(sale.finalPrice)
+      : initialProduct && initialProduct.price > 0
+        ? String(initialProduct.price)
+        : "",
+  );
   const [errors, setErrors] = useState<FieldErrors>({});
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -53,7 +73,7 @@ export function AddProductForm({ products, onSuccess }: AddProductFormProps) {
     setErrors((prev) => ({ ...prev, productId: undefined }));
     const product = products.find((p) => p.id === id);
     if (product) {
-      setModel(product.name);
+      setModel(product.category);
       const price = product.price > 0 ? String(product.price) : "";
       setUnitPrice(price);
       setTotal(price);
@@ -78,8 +98,8 @@ export function AddProductForm({ products, onSuccess }: AddProductFormProps) {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/sales", {
-        method: "POST",
+      const res = await fetch(sale ? `/api/sales/${sale.id}` : "/api/sales", {
+        method: sale ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
           "Accept-Language": locale,
@@ -89,7 +109,11 @@ export function AddProductForm({ products, onSuccess }: AddProductFormProps) {
       const data = (await res.json()) as { message?: string; error?: string };
 
       if (res.ok) {
-        setMessage({ type: "success", text: data.message ?? t.addProduct.successMessage });
+        setMessage({
+          type: "success",
+          text:
+            data.message ?? (isEdit ? t.addProduct.updatedMessage : t.addProduct.successMessage),
+        });
         setProductId("");
         setModel("");
         setUnitPrice("");
@@ -115,9 +139,24 @@ export function AddProductForm({ products, onSuccess }: AddProductFormProps) {
           <ShoppingBag className="size-6" aria-hidden="true" />
         </div>
         <div>
-          <h2 className="text-base font-extrabold">{t.addProduct.title}</h2>
-          <p className="text-xs font-medium text-white/80">{t.addProduct.subtitle}</p>
+          <h2 className="text-base font-extrabold">
+            {isEdit ? t.addProduct.editTitle : t.addProduct.title}
+          </h2>
+          <p className="text-xs font-medium text-white/80">
+            {isEdit ? t.addProduct.editSubtitle : t.addProduct.subtitle}
+          </p>
         </div>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="ms-auto rounded-lg p-1.5 text-white/80 transition-colors hover:bg-white/15 hover:text-white disabled:opacity-50"
+            aria-label={t.addProduct.cancel}
+          >
+            <X className="size-5" aria-hidden="true" />
+          </button>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} noValidate className="flex flex-1 flex-col space-y-5 p-5 sm:p-6">
@@ -185,7 +224,7 @@ export function AddProductForm({ products, onSuccess }: AddProductFormProps) {
               type="text"
               placeholder={t.addProduct.modelPlaceholder}
               value={model}
-              onChange={(e) => setModel(e.target.value)}
+              readOnly
               startIcon={<Tag className="size-4" aria-hidden="true" />}
               disabled={loading}
             />
@@ -201,7 +240,7 @@ export function AddProductForm({ products, onSuccess }: AddProductFormProps) {
               step="any"
               placeholder={t.addProduct.salePricePlaceholder}
               value={unitPrice}
-              onChange={(e) => setUnitPrice(e.target.value)}
+              readOnly
               startIcon={<Banknote className="size-4" aria-hidden="true" />}
               hasError={!!errors.unitPrice}
               disabled={loading}
@@ -228,16 +267,28 @@ export function AddProductForm({ products, onSuccess }: AddProductFormProps) {
 
         <div className="mt-auto flex items-center justify-between gap-4 border-t border-border pt-5">
           <p className="hidden text-xs text-muted-foreground sm:block">{t.hobani.saveHint}</p>
-          <Button
-            type="submit"
-            variant="success"
-            size="lg"
-            className="w-full sm:w-auto"
-            loading={loading}
-          >
-            <Banknote className="size-4" aria-hidden="true" />
-            {loading ? t.addProduct.saving : t.addProduct.save}
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              onClick={onClose}
+              disabled={loading}
+            >
+              <X className="size-4" aria-hidden="true" />
+              {t.addProduct.cancel}
+            </Button>
+            <Button
+              type="submit"
+              variant="success"
+              size="lg"
+              className="w-full sm:w-auto"
+              loading={loading}
+            >
+              <Banknote className="size-4" aria-hidden="true" />
+              {loading ? t.addProduct.saving : isEdit ? t.addProduct.saveChanges : t.addProduct.save}
+            </Button>
+          </div>
         </div>
       </form>
     </div>

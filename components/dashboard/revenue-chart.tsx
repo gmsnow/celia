@@ -29,7 +29,7 @@ const PERIODS: { key: Period; label: string }[] = [
   { key: "6m", label: "6M" },
 ];
 
-type SummaryKey = "profit" | "expenses" | "net" | "subscriptions";
+type SummaryKey = "profit" | "expenses" | "net" | "advance";
 
 function summaryValue(point: MonthlyRevenuePoint, key: SummaryKey): number {
   switch (key) {
@@ -49,7 +49,7 @@ export function RevenueChart({ months, className }: RevenueChartProps) {
       { key: "profit" as const, label: t.dashboard.revenueChart.profit },
       { key: "expenses" as const, label: t.dashboard.revenueChart.expenses },
       { key: "net" as const, label: t.dashboard.revenueChart.netProfit },
-      { key: "subscriptions" as const, label: t.dashboard.revenueChart.subscriptions },
+      { key: "advance" as const, label: t.dashboard.revenueChart.advance },
     ],
     [t],
   );

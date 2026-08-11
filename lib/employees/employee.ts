@@ -1,28 +1,22 @@
 import { z } from "zod";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
+import { USER_ROLES } from "@/lib/users/users";
 
-export const EMPLOYEE_DEPARTMENTS = [
-  "PHYSICAL_THERAPY",
-  "NUTRITION",
-  "ADMINISTRATION",
-  "IT",
-  "SECRETARY",
-  "GUARD",
-] as const;
+export const EMPLOYEE_DEPARTMENTS = USER_ROLES;
 
 export type EmployeeDepartment = (typeof EMPLOYEE_DEPARTMENTS)[number];
 
-const optionalDepartment = z
-  .string()
-  .refine(
+function departmentField(t: Dictionary) {
+  return z.string().refine(
     (value) => value === "" || (EMPLOYEE_DEPARTMENTS as readonly string[]).includes(value),
-    (value) => (value === "" ? undefined : "department_error"),
+    t.employeesManagement.departmentError,
   );
+}
 
 export function createEmployeeSchema(t: Dictionary) {
   return z.object({
     name: z.string().min(1, t.employeesManagement.nameError),
-    department: optionalDepartment.optional().default(""),
+    department: departmentField(t).optional().default(""),
     phone: z.string().max(30, t.employeesManagement.phoneError).optional().default(""),
     salary: z.coerce
       .number(t.employeesManagement.salaryError)
@@ -36,7 +30,7 @@ export function updateEmployeeSchema(t: Dictionary) {
   return z
     .object({
       name: z.string().min(1, t.employeesManagement.nameError).optional(),
-      department: optionalDepartment.optional(),
+      department: departmentField(t).optional(),
       phone: z.string().max(30, t.employeesManagement.phoneError).optional(),
       salary: z.coerce
         .number(t.employeesManagement.salaryError)

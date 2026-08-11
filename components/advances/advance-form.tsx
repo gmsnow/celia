@@ -12,6 +12,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { createAdvanceSchema } from "@/lib/advances/advance";
+import type { AdvanceRow } from "@/lib/advances/queries";
 import { useLocale } from "@/lib/i18n/locale-provider";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
@@ -30,10 +31,13 @@ const headerGradient = `linear-gradient(135deg, color-mix(in srgb, var(--primary
 const selectClassName =
   "flex h-11 w-full rounded-lg border border-input bg-card px-3.5 text-sm text-foreground shadow-sm transition-colors duration-150 focus-visible:outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60 appearance-none";
 
+function toDateValue(date: Date): string {
+  const offset = date.getTimezoneOffset();
+  return new Date(date.getTime() - offset * 60_000).toISOString().slice(0, 10);
+}
+
 function todayValue(): string {
-  const now = new Date();
-  const offset = now.getTimezoneOffset();
-  return new Date(now.getTime() - offset * 60_000).toISOString().slice(0, 10);
+  return toDateValue(new Date());
 }
 
 interface Employee {
@@ -43,16 +47,23 @@ interface Employee {
 
 export function AdvanceForm({
   employees,
+  advance,
   onSuccess,
+  onClose,
 }: {
   employees: Employee[];
+  advance?: AdvanceRow | null;
   onSuccess?: () => void;
+  onClose?: () => void;
 }) {
   const { locale, t } = useLocale();
-  const [employeeId, setEmployeeId] = useState("");
-  const [amount, setAmount] = useState("");
-  const [advanceDate, setAdvanceDate] = useState(todayValue);
-  const [notes, setNotes] = useState("");
+  const isEdit = !!advance;
+  const [employeeId, setEmployeeId] = useState(advance?.employeeId ?? "");
+  const [amount, setAmount] = useState(advance ? String(advance.amount) : "");
+  const [advanceDate, setAdvanceDate] = useState(
+    advance ? toDateValue(advance.advanceDate) : todayValue(),
+  );
+  const [notes, setNotes] = useState(advance?.notes ?? "");
   const [errors, setErrors] = useState<FieldErrors>({});
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -74,7 +85,7 @@ export function AdvanceForm({
 
     const result = schema.safeParse({
       employeeId,
-      employeeName: selectedEmployee?.name ?? "",
+      employeeName: selectedEmployee?.name ?? advance?.employeeName ?? "",
       amount,
       advanceDate,
       notes,
@@ -93,8 +104,8 @@ export function AdvanceForm({
     setLoading(true);
 
     try {
-      const res = await fetch("/api/advances", {
-        method: "POST",
+      const res = await fetch(advance ? `/api/advances/${advance.id}` : "/api/advances", {
+        method: advance ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
           "Accept-Language": locale,
@@ -104,7 +115,11 @@ export function AdvanceForm({
       const data = (await res.json()) as { message?: string; error?: string };
 
       if (res.ok) {
-        setMessage({ type: "success", text: data.message ?? t.addAdvance.successMessage });
+        setMessage({
+          type: "success",
+          text:
+            data.message ?? (isEdit ? t.addAdvance.updatedMessage : t.addAdvance.successMessage),
+        });
         reset();
         onSuccess?.();
       } else {
@@ -127,9 +142,24 @@ export function AdvanceForm({
           <HandCoins className="size-6" aria-hidden="true" />
         </div>
         <div>
-          <h2 className="text-base font-extrabold">{t.addAdvance.title}</h2>
-          <p className="text-xs font-medium text-white/80">{t.addAdvance.subtitle}</p>
+          <h2 className="text-base font-extrabold">
+            {isEdit ? t.addAdvance.editTitle : t.addAdvance.title}
+          </h2>
+          <p className="text-xs font-medium text-white/80">
+            {isEdit ? t.addAdvance.editSubtitle : t.addAdvance.subtitle}
+          </p>
         </div>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="ms-auto rounded-lg p-1.5 text-white/80 transition-colors hover:bg-white/15 hover:text-white disabled:opacity-50"
+            aria-label={t.addAdvance.cancel}
+          >
+            <X className="size-5" aria-hidden="true" />
+          </button>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} noValidate className="flex flex-1 flex-col space-y-5 p-5 sm:p-6">
@@ -243,12 +273,12 @@ export function AdvanceForm({
         </FormField>
 
         <div className="mt-auto flex items-center justify-end gap-3 border-t border-border pt-5">
-          <Button type="button" variant="outline" size="lg" onClick={reset} disabled={loading}>
+          <Button type="button" variant="outline" size="lg" onClick={onClose ?? reset} disabled={loading}>
             <X className="size-4" aria-hidden="true" />
             {t.addAdvance.cancel}
           </Button>
           <Button type="submit" variant="success" size="lg" className="w-full sm:w-auto" loading={loading}>
-            {loading ? t.addAdvance.saving : t.addAdvance.save}
+            {loading ? t.addAdvance.saving : isEdit ? t.addAdvance.saveChanges : t.addAdvance.save}
           </Button>
         </div>
       </form>

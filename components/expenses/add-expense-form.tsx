@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { EXPENSE_PAYMENT_METHODS, createExpenseSchema } from "@/lib/expenses/expense";
+import type { ExpenseRow } from "@/lib/expenses/queries";
 import { useLocale } from "@/lib/i18n/locale-provider";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
@@ -32,19 +33,31 @@ const headerGradient = `linear-gradient(135deg, color-mix(in srgb, var(--primary
 const selectClassName =
   "flex h-11 w-full rounded-lg border border-input bg-card px-3.5 text-sm text-foreground shadow-sm transition-colors duration-150 focus-visible:outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60 appearance-none";
 
-function todayValue(): string {
-  const now = new Date();
-  const offset = now.getTimezoneOffset();
-  return new Date(now.getTime() - offset * 60_000).toISOString().slice(0, 10);
+function toDateValue(date: Date): string {
+  const offset = date.getTimezoneOffset();
+  return new Date(date.getTime() - offset * 60_000).toISOString().slice(0, 10);
 }
 
-export function AddExpenseForm({ onSuccess }: { onSuccess?: () => void }) {
+function todayValue(): string {
+  return toDateValue(new Date());
+}
+
+interface AddExpenseFormProps {
+  expense?: ExpenseRow | null;
+  onSuccess?: () => void;
+  onClose?: () => void;
+}
+
+export function AddExpenseForm({ expense, onSuccess, onClose }: AddExpenseFormProps) {
   const { locale, t } = useLocale();
-  const [type, setType] = useState("");
-  const [amount, setAmount] = useState("");
-  const [expenseDate, setExpenseDate] = useState(todayValue);
-  const [paymentMethod, setPaymentMethod] = useState("");
-  const [notes, setNotes] = useState("");
+  const isEdit = !!expense;
+  const [type, setType] = useState(expense?.type ?? "");
+  const [amount, setAmount] = useState(expense ? String(expense.amount) : "");
+  const [expenseDate, setExpenseDate] = useState(
+    expense ? toDateValue(expense.expenseDate) : todayValue(),
+  );
+  const [paymentMethod, setPaymentMethod] = useState(expense?.paymentMethod ?? "");
+  const [notes, setNotes] = useState(expense?.notes ?? "");
   const [errors, setErrors] = useState<FieldErrors>({});
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -79,8 +92,8 @@ export function AddExpenseForm({ onSuccess }: { onSuccess?: () => void }) {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/expenses", {
-        method: "POST",
+      const res = await fetch(expense ? `/api/expenses/${expense.id}` : "/api/expenses", {
+        method: expense ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
           "Accept-Language": locale,
@@ -90,7 +103,11 @@ export function AddExpenseForm({ onSuccess }: { onSuccess?: () => void }) {
       const data = (await res.json()) as { message?: string; error?: string };
 
       if (res.ok) {
-        setMessage({ type: "success", text: data.message ?? t.addExpense.successMessage });
+        setMessage({
+          type: "success",
+          text:
+            data.message ?? (isEdit ? t.addExpense.updatedMessage : t.addExpense.successMessage),
+        });
         reset();
         onSuccess?.();
       } else {
@@ -113,9 +130,24 @@ export function AddExpenseForm({ onSuccess }: { onSuccess?: () => void }) {
           <ReceiptText className="size-6" aria-hidden="true" />
         </div>
         <div>
-          <h2 className="text-base font-extrabold">{t.addExpense.title}</h2>
-          <p className="text-xs font-medium text-white/80">{t.addExpense.subtitle}</p>
+          <h2 className="text-base font-extrabold">
+            {isEdit ? t.addExpense.editTitle : t.addExpense.title}
+          </h2>
+          <p className="text-xs font-medium text-white/80">
+            {isEdit ? t.addExpense.editSubtitle : t.addExpense.subtitle}
+          </p>
         </div>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="ms-auto rounded-lg p-1.5 text-white/80 transition-colors hover:bg-white/15 hover:text-white disabled:opacity-50"
+            aria-label={t.addExpense.cancel}
+          >
+            <X className="size-5" aria-hidden="true" />
+          </button>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} noValidate className="flex flex-1 flex-col space-y-5 p-5 sm:p-6">
@@ -248,12 +280,12 @@ export function AddExpenseForm({ onSuccess }: { onSuccess?: () => void }) {
         </FormField>
 
         <div className="mt-auto flex items-center justify-end gap-3 border-t border-border pt-5">
-          <Button type="button" variant="outline" size="lg" onClick={reset} disabled={loading}>
+          <Button type="button" variant="outline" size="lg" onClick={onClose ?? reset} disabled={loading}>
             <X className="size-4" aria-hidden="true" />
             {t.addExpense.cancel}
           </Button>
           <Button type="submit" variant="success" size="lg" className="w-full sm:w-auto" loading={loading}>
-            {loading ? t.addExpense.saving : t.addExpense.save}
+            {loading ? t.addExpense.saving : isEdit ? t.addExpense.saveChanges : t.addExpense.save}
           </Button>
         </div>
       </form>

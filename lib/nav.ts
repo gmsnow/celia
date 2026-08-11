@@ -22,6 +22,7 @@ import {
   Sunrise,
   Tags,
   Users,
+  UsersRound,
   Wallet,
   type LucideIcon,
 } from "lucide-react";
@@ -127,7 +128,8 @@ export function getSidebarSections(t: Dictionary): SidebarSection[] {
           label: s.employeePermissions,
           icon: Users,
           children: [
-            { label: s.managePermissions, href: "/authorization", icon: ShieldCheck },
+            { label: s.manageEmployees, href: "/employees", icon: UsersRound },
+            { label: s.manageUsers, href: "/users", icon: Circle },
             {
               label: s.employeeSalaries,
               icon: Banknote,

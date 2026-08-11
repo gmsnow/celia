@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import { EyeOff, Plus } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Plus } from "lucide-react";
 import type { HobaniTotalRow } from "@/lib/hobani/totals";
 import { useLocale } from "@/lib/i18n/locale-provider";
 import { HobaniTotalsTable } from "@/components/hobani/hobani-totals-table";
@@ -17,7 +17,24 @@ export function HobaniTotalsView({ initialRows }: HobaniTotalsViewProps) {
   const ht = t.hobaniTotals;
   const [rows, setRows] = useState<HobaniTotalRow[]>(initialRows);
   const [formOpen, setFormOpen] = useState(false);
-  const formRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    document.body.style.overflow = formOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [formOpen]);
+
+  useEffect(() => {
+    if (!formOpen) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setFormOpen(false);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [formOpen]);
 
   const refresh = useCallback(async () => {
     try {
@@ -31,37 +48,40 @@ export function HobaniTotalsView({ initialRows }: HobaniTotalsViewProps) {
     }
   }, []);
 
-  function handleToggle() {
-    const next = !formOpen;
-    setFormOpen(next);
-    if (next) {
-      requestAnimationFrame(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
-    }
+  function closeForm() {
+    setFormOpen(false);
+  }
+
+  function handleFormSuccess() {
+    void refresh();
+    closeForm();
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-end">
-        <Button
-          variant={formOpen ? "outline" : "primary"}
-          size="md"
-          onClick={handleToggle}
-        >
-          {formOpen ? (
-            <EyeOff className="size-4" aria-hidden="true" />
-          ) : (
-            <Plus className="size-4" aria-hidden="true" />
-          )}
-          {formOpen ? ht.hideForm : ht.addIncome}
+        <Button variant="primary" size="md" onClick={() => setFormOpen(true)}>
+          <Plus className="size-4" aria-hidden="true" />
+          {ht.addIncome}
         </Button>
       </div>
 
-      {formOpen ? (
-        <div ref={formRef} className="scroll-mt-6">
-          <HobaniIncomeForm onSuccess={refresh} />
+      <HobaniTotalsTable initialRows={rows} />
+
+      {formOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={closeForm}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-2xl shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <HobaniIncomeForm onSuccess={handleFormSuccess} onClose={closeForm} />
+          </div>
         </div>
-      ) : (
-        <HobaniTotalsTable initialRows={rows} />
       )}
     </div>
   );

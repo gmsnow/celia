@@ -1,26 +1,21 @@
-import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/session";
-import { getRolePermissions } from "@/lib/roles/queries";
+import { getEmployees } from "@/lib/employees/queries";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
-import { PermissionsView } from "@/components/authorization/permissions-view";
+import { SalaryView } from "@/components/employees/salary-view";
 
 export const metadata = {
-  title: "إدارة الصلاحيات",
-  description: "تحديد صلاحيات الأدوار",
+  title: "رواتب الموظفين",
+  description: "تعديل رواتب الموظفين",
 };
 
-export default async function AuthorizationPage() {
+export default async function SalaryPage() {
   const session = await requireUser();
   const user = session.user;
 
-  if (user.role !== "admin") {
-    redirect("/");
-  }
-
-  const data = await getRolePermissions();
+  const summary = await getEmployees();
 
   return (
-    <DashboardShell user={{ name: user.name, role: user.role }} titleKey="sidebar.managePermissions">
+    <DashboardShell user={{ name: user.name, role: user.role }} titleKey="sidebar.editSalaries">
       <div className="relative flex w-full flex-col overflow-hidden min-h-[calc(100dvh-14rem)]">
         <div
           className="pointer-events-none absolute -top-10 -end-16 size-60 rounded-full bg-primary/10 blur-3xl"
@@ -31,7 +26,7 @@ export default async function AuthorizationPage() {
           aria-hidden="true"
         />
         <div className="relative flex-1">
-          <PermissionsView initialData={data} />
+          <SalaryView initialSummary={summary} />
         </div>
       </div>
     </DashboardShell>

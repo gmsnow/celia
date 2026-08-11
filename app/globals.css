@@ -79,3 +79,31 @@ body {
 ::selection {
   background: color-mix(in srgb, var(--primary) 20%, transparent);
 }
+
+@keyframes celia-blob-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(24px, -28px, 0) scale(1.08);
+  }
+}
+
+@keyframes celia-blob-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(-20px, 24px, 0) scale(0.94);
+  }
+}
+
+.celia-blob {
+  animation: celia-blob-float 14s ease-in-out infinite;
+}
+
+.celia-blob-slow {
+  animation: celia-blob-drift 20s ease-in-out infinite;
+}

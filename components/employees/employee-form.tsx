@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { BadgeDollarSign, CheckCircle2, Pencil, Phone, UserRound, UsersRound, X, XCircle } from "lucide-react";
-import { createEmployeeSchema, updateEmployeeSchema } from "@/lib/employees/employee";
+import { createEmployeeSchema, updateEmployeeSchema, EMPLOYEE_DEPARTMENTS } from "@/lib/employees/employee";
 import type { EmployeeRow } from "@/lib/employees/queries";
 import { useLocale } from "@/lib/i18n/locale-provider";
 import { Button } from "@/components/ui/button";
@@ -25,9 +25,10 @@ const selectClassName =
 interface EmployeeFormProps {
   initialData?: EmployeeRow | null;
   onSuccess?: () => void;
+  onClose?: () => void;
 }
 
-export function EmployeeForm({ initialData, onSuccess }: EmployeeFormProps) {
+export function EmployeeForm({ initialData, onSuccess, onClose }: EmployeeFormProps) {
   const { locale, t } = useLocale();
   const em = t.employeesManagement;
   const isEdit = !!initialData;
@@ -124,6 +125,17 @@ export function EmployeeForm({ initialData, onSuccess }: EmployeeFormProps) {
             {isEdit ? em.editSubtitle : em.addSubtitle}
           </p>
         </div>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="ms-auto rounded-lg p-1.5 text-white/80 transition-colors hover:bg-white/15 hover:text-white disabled:opacity-50"
+            aria-label={em.cancel}
+          >
+            <X className="size-5" aria-hidden="true" />
+          </button>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} noValidate className="flex flex-1 flex-col space-y-5 p-5 sm:p-6">
@@ -178,9 +190,9 @@ export function EmployeeForm({ initialData, onSuccess }: EmployeeFormProps) {
               )}
             >
               <option value="">{em.selectDepartment}</option>
-              {Object.entries(em.departments).map(([value, label]) => (
+              {EMPLOYEE_DEPARTMENTS.map((value) => (
                 <option key={value} value={value}>
-                  {label}
+                  {t.roles[value as keyof typeof t.roles]}
                 </option>
               ))}
             </select>
@@ -220,7 +232,13 @@ export function EmployeeForm({ initialData, onSuccess }: EmployeeFormProps) {
         </FormField>
 
         <div className="mt-auto flex items-center justify-end gap-3 border-t border-border pt-5">
-          <Button type="button" variant="outline" size="lg" onClick={reset} disabled={loading}>
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            onClick={onClose ?? reset}
+            disabled={loading}
+          >
             <X className="size-4" aria-hidden="true" />
             {em.cancel}
           </Button>

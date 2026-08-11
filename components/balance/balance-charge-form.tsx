@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Banknote, CheckCircle2, Smartphone, StickyNote, Wallet, XCircle } from "lucide-react";
+import { Banknote, CheckCircle2, Smartphone, StickyNote, Wallet, X, XCircle } from "lucide-react";
 import { BALANCE_PROVIDERS, createBalanceChargeSchema } from "@/lib/balance/charge";
 import { useLocale } from "@/lib/i18n/locale-provider";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,12 @@ const selectClassName =
 const textareaClassName =
   "flex min-h-28 w-full rounded-lg border border-input bg-card px-3.5 py-3 text-sm text-foreground shadow-sm transition-colors duration-150 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60";
 
-export function BalanceChargeForm({ onSuccess }: { onSuccess?: () => void }) {
+interface BalanceChargeFormProps {
+  onSuccess?: () => void;
+  onClose?: () => void;
+}
+
+export function BalanceChargeForm({ onSuccess, onClose }: BalanceChargeFormProps) {
   const { locale, t } = useLocale();
   const [provider, setProvider] = useState("");
   const [amount, setAmount] = useState("");
@@ -89,6 +94,17 @@ export function BalanceChargeForm({ onSuccess }: { onSuccess?: () => void }) {
           <h2 className="text-base font-extrabold">{t.balance.title}</h2>
           <p className="text-xs font-medium text-white/80">{t.balance.subtitle}</p>
         </div>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="ms-auto rounded-lg p-1.5 text-white/80 transition-colors hover:bg-white/15 hover:text-white disabled:opacity-50"
+            aria-label={t.balance.cancel}
+          >
+            <X className="size-5" aria-hidden="true" />
+          </button>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} noValidate className="flex flex-1 flex-col space-y-5 p-5 sm:p-6">
@@ -180,10 +196,22 @@ export function BalanceChargeForm({ onSuccess }: { onSuccess?: () => void }) {
           <p className="hidden text-xs text-muted-foreground sm:block">
             {t.hobani.saveHint}
           </p>
-          <Button type="submit" variant="success" size="lg" className="w-full sm:w-auto" loading={loading}>
-            <Banknote className="size-4" aria-hidden="true" />
-            {loading ? t.balance.saving : t.balance.save}
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              onClick={onClose}
+              disabled={loading}
+            >
+              <X className="size-4" aria-hidden="true" />
+              {t.balance.cancel}
+            </Button>
+            <Button type="submit" variant="success" size="lg" className="w-full sm:w-auto" loading={loading}>
+              <Banknote className="size-4" aria-hidden="true" />
+              {loading ? t.balance.saving : t.balance.save}
+            </Button>
+          </div>
         </div>
       </form>
     </div>

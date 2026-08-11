@@ -3,8 +3,10 @@ import { db, schema } from "@/lib/db";
 
 export interface ProductSaleRow {
   id: string;
+  productId: string;
   name: string;
   category: string;
+  unitPrice: number;
   finalPrice: number;
   createdAt: Date;
 }
@@ -42,8 +44,10 @@ export async function getAllProductSales(): Promise<ProductSaleRow[]> {
   const rows = await db
     .select({
       id: schema.productSales.id,
+      productId: schema.productSales.productId,
       name: schema.products.name,
       category: schema.products.category,
+      unitPrice: schema.productSales.unitPrice,
       finalPrice: schema.productSales.total,
       createdAt: schema.productSales.createdAt,
     })
@@ -53,8 +57,10 @@ export async function getAllProductSales(): Promise<ProductSaleRow[]> {
 
   return rows.map((row) => ({
     id: row.id,
+    productId: row.productId,
     name: row.name,
     category: row.category,
+    unitPrice: Number(row.unitPrice ?? 0),
     finalPrice: Number(row.finalPrice ?? 0),
     createdAt: row.createdAt,
   }));

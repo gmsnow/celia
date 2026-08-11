@@ -22,12 +22,15 @@ interface IncomeCardProps {
   title: string;
   compareLabel: string;
   current: number;
+  previous: number;
   changePercent: number;
 }
 
-function IncomeCard({ title, compareLabel, current, changePercent }: IncomeCardProps) {
+function IncomeCard({ title, compareLabel, current, previous, changePercent }: IncomeCardProps) {
+  const { t } = useLocale();
   const isUp = changePercent >= 0;
   const TrendIcon = isUp ? TrendingUp : TrendingDown;
+  const hasBaseline = previous > 0;
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
@@ -36,15 +39,21 @@ function IncomeCard({ title, compareLabel, current, changePercent }: IncomeCardP
         {formatCurrency(current)}
       </p>
       <div className="mt-3 flex items-center gap-2">
-        <span
-          className={cn(
-            "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold",
-            isUp ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive",
-          )}
-        >
-          <TrendIcon className="size-3.5" aria-hidden="true" />
-          {formatPercentSigned(changePercent)}
-        </span>
+        {hasBaseline ? (
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold",
+              isUp ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive",
+            )}
+          >
+            <TrendIcon className="size-3.5" aria-hidden="true" />
+            {formatPercentSigned(changePercent)}
+          </span>
+        ) : (
+          <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-bold text-muted-foreground">
+            {current > 0 ? t.dashboard.revenueCards.newLabel : "—"}
+          </span>
+        )}
         <span className="text-xs font-medium text-muted-foreground">{compareLabel}</span>
       </div>
     </div>
@@ -100,9 +109,9 @@ export function TransferDashboard() {
   const today = data.today;
   const recent = data.recent;
   const revenue = data.revenue ?? {
-    daily: { current: 0, changePercent: 0 },
-    weekly: { current: 0, changePercent: 0 },
-    monthly: { current: 0, changePercent: 0 },
+    daily: { current: 0, previous: 0, changePercent: 0 },
+    weekly: { current: 0, previous: 0, changePercent: 0 },
+    monthly: { current: 0, previous: 0, changePercent: 0 },
   };
 
   return (
@@ -111,18 +120,21 @@ export function TransferDashboard() {
         <IncomeCard
           title={t.sidebar.dailyIncome}
           current={revenue.daily.current}
+          previous={revenue.daily.previous}
           changePercent={revenue.daily.changePercent}
           compareLabel={t.dashboard.revenueCards.compareYesterday}
         />
         <IncomeCard
           title={t.sidebar.weeklyIncome}
           current={revenue.weekly.current}
+          previous={revenue.weekly.previous}
           changePercent={revenue.weekly.changePercent}
           compareLabel={t.dashboard.revenueCards.compareLastWeek}
         />
         <IncomeCard
           title={t.sidebar.monthlyIncome}
           current={revenue.monthly.current}
+          previous={revenue.monthly.previous}
           changePercent={revenue.monthly.changePercent}
           compareLabel={t.dashboard.revenueCards.compareLastMonth}
         />
