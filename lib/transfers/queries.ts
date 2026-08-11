@@ -15,6 +15,7 @@ import {
 } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { AGENT_ONLINE_WINDOW_MS } from "./constants";
+import { cached } from "@/lib/cache";
 import { logAudit } from "./audit";
 import { logger } from "@/lib/logger";
 import type {
@@ -125,6 +126,40 @@ export async function getTransferJobs(filters: TransferFilters = {}): Promise<Tr
 export async function getTransferJobById(id: string): Promise<TransferJobView | null> {
   const rows = await jobBase().where(eq(schema.transferJobs.id, id)).limit(1);
   return rows.length > 0 ? toJobView(rows[0]) : null;
+}
+
+const AGENT_FOLDERS_TTL_MS = 5 * 60 * 1000;
+
+/**
+ * Distinct source folders each agent has copied from, derived from its
+ * transfer jobs. Capped per agent to keep payloads small. Cached for five
+ * minutes because the dashboard polls this every few seconds and the GROUP BY
+ * scans every transfer job.
+ */
+export function getAgentFolders(agentIds: string[], limit = 8): Promise<Map<string, string[]>> {
+  const ids = agentIds.filter((id): id is string => id !== null);
+  if (ids.length === 0) return Promise.resolve(new Map());
+  return cached(`transfers:agent-folders:${ids.join(",")}:${limit}`, AGENT_FOLDERS_TTL_MS, async () => {
+    const folders = new Map<string, string[]>();
+
+    const rows = await db
+      .select({
+        agentId: schema.transferJobs.agentId,
+        sourcePath: schema.transferJobs.sourcePath,
+      })
+      .from(schema.transferJobs)
+      .where(inArray(schema.transferJobs.agentId, ids))
+      .groupBy(schema.transferJobs.agentId, schema.transferJobs.sourcePath);
+
+    for (const row of rows) {
+      if (!row.agentId || !row.sourcePath) continue;
+      const list = folders.get(row.agentId) ?? [];
+      if (list.length >= limit) continue;
+      list.push(row.sourcePath);
+      folders.set(row.agentId, list);
+    }
+    return folders;
+  });
 }
 
 export const STALE_RUNNING_MS = 3 * 60 * 1000;
@@ -275,21 +310,6 @@ function shareLabelOf(share: typeof schema.nasShares.$inferSelect | null): strin
   return base ? `${label}\\${base}` : label;
 }
 
-/**
- * The server an agent copies from, derived from the UNC paths it actually
- * copied (host portion), falling back to the linked share's host.
- */
-function serverHostOf(
-  folders: string[],
-  share: typeof schema.nasShares.$inferSelect | null,
-): string | null {
-  for (const folder of folders) {
-    const match = /^\\{1,2}([^\\/]+)(?:\\|$)/.exec(folder.trim());
-    if (match) return match[1];
-  }
-  return share?.host ?? null;
-}
-
 function agentToView(
   agent: typeof schema.transferAgents.$inferSelect,
   share: typeof schema.nasShares.$inferSelect | null,
@@ -314,34 +334,18 @@ function agentToView(
 }
 
 /**
- * Distinct source folders each agent has copied from, derived from its
- * transfer jobs. Capped per agent to keep payloads small.
+ * The server an agent copies from, derived from the UNC paths it actually
+ * copied (host portion), falling back to the linked share's host.
  */
-export async function getAgentFolders(
-  agentIds: string[],
-  limit = 8,
-): Promise<Map<string, string[]>> {
-  const folders = new Map<string, string[]>();
-  const ids = agentIds.filter((id) => id !== null);
-  if (ids.length === 0) return folders;
-
-  const rows = await db
-    .select({
-      agentId: schema.transferJobs.agentId,
-      sourcePath: schema.transferJobs.sourcePath,
-    })
-    .from(schema.transferJobs)
-    .where(inArray(schema.transferJobs.agentId, ids))
-    .groupBy(schema.transferJobs.agentId, schema.transferJobs.sourcePath);
-
-  for (const row of rows) {
-    if (!row.agentId || !row.sourcePath) continue;
-    const list = folders.get(row.agentId) ?? [];
-    if (list.length >= limit) continue;
-    list.push(row.sourcePath);
-    folders.set(row.agentId, list);
+function serverHostOf(
+  folders: string[],
+  share: typeof schema.nasShares.$inferSelect | null,
+): string | null {
+  for (const folder of folders) {
+    const match = /^\\{1,2}([^\\/]+)(?:\\|$)/.exec(folder.trim());
+    if (match) return match[1];
   }
-  return folders;
+  return share?.host ?? null;
 }
 
 export async function assignAgentShare(
@@ -384,7 +388,15 @@ function startOfLocalDay(): Date {
   return new Date(now.getFullYear(), now.getMonth(), now.getDate());
 }
 
-export async function getDashboardTransferStats(): Promise<DashboardTransferStats> {
+const DASHBOARD_TRANSFER_STATS_TTL_MS = 5_000;
+
+export function getDashboardTransferStats(): Promise<DashboardTransferStats> {
+  return cached("transfers:dashboard-stats", DASHBOARD_TRANSFER_STATS_TTL_MS, () =>
+    computeDashboardTransferStats(),
+  );
+}
+
+async function computeDashboardTransferStats(): Promise<DashboardTransferStats> {
   const today = startOfLocalDay();
   const [todayRows, activeRows, recentRows, deviceStats] = await Promise.all([
     db

@@ -73,15 +73,19 @@ export const verifications = pgTable("verification", {
   updatedAt: timestamp("updated_at"),
 });
 
-export const hobaniIncome = pgTable("hobani_income", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  income: numeric("income", { precision: 12, scale: 2 }).notNull(),
-  period: text("period").notNull(),
-  cardType: integer("card_type"),
-  quantity: integer("quantity").notNull().default(0),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
-});
+export const hobaniIncome = pgTable(
+  "hobani_income",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    income: numeric("income", { precision: 12, scale: 2 }).notNull(),
+    period: text("period").notNull(),
+    cardType: integer("card_type"),
+    quantity: integer("quantity").notNull().default(0),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+  },
+  (table) => [index("hobani_income_created_at_idx").on(table.createdAt)],
+);
 
 export const transferAgents = pgTable("transfer_agents", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -158,6 +162,8 @@ export const transferJobs = pgTable(
   (table) => [
     index("transfer_jobs_status_idx").on(table.status),
     index("transfer_jobs_created_at_idx").on(table.createdAt),
+    index("transfer_jobs_status_created_at_idx").on(table.status, table.createdAt),
+    index("transfer_jobs_agent_source_idx").on(table.agentId, table.sourcePath),
     index("transfer_jobs_employee_id_idx").on(table.employeeId),
   ],
 );
@@ -217,14 +223,18 @@ export const auditLog = pgTable(
   (table) => [index("audit_log_created_at_idx").on(table.createdAt)],
 );
 
-export const balanceCharge = pgTable("balance_charge", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  provider: text("provider").notNull(),
-  amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
-  notes: text("notes"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
-});
+export const balanceCharge = pgTable(
+  "balance_charge",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    provider: text("provider").notNull(),
+    amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+    notes: text("notes"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+  },
+  (table) => [index("balance_charge_created_at_idx").on(table.createdAt)],
+);
 
 export const products = pgTable(
   "products",
@@ -258,18 +268,22 @@ export const productSales = pgTable(
   ],
 );
 
-export const copyRecords = pgTable("copy_records", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  name: text("name").notNull(),
-  price: numeric("price", { precision: 12, scale: 2 }).notNull().default("0"),
-  sizeGB: numeric("size_gb", { precision: 10, scale: 2 }).notNull().default("0"),
-  isComplete: boolean("is_complete").notNull().default(true),
-  stopReason: text("stop_reason"),
-  stoppedAt: timestamp("stopped_at"),
-  copiedAt: timestamp("copied_at").notNull().defaultNow(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
-});
+export const copyRecords = pgTable(
+  "copy_records",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    name: text("name").notNull(),
+    price: numeric("price", { precision: 12, scale: 2 }).notNull().default("0"),
+    sizeGB: numeric("size_gb", { precision: 10, scale: 2 }).notNull().default("0"),
+    isComplete: boolean("is_complete").notNull().default(true),
+    stopReason: text("stop_reason"),
+    stoppedAt: timestamp("stopped_at"),
+    copiedAt: timestamp("copied_at").notNull().defaultNow(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+  },
+  (table) => [index("copy_records_created_at_idx").on(table.createdAt)],
+);
 
 export const expenses = pgTable(
   "expenses",

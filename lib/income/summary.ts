@@ -1,5 +1,6 @@
 import { count, desc, gte, sum } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
+import { cached } from "@/lib/cache";
 import { HOBANI_PERIODS } from "@/lib/hobani/income";
 
 export interface IncomeSummaryProduct {
@@ -36,8 +37,16 @@ function percent(value: number, total: number): number {
  * Aggregates income categories since an optional start date (all-time when
  * `from` is omitted): copies, hobani (by shift), sales and wallet charges.
  */
-export async function getIncomeSummary(from?: Date): Promise<IncomeSummaryStats> {
+const INCOME_SUMMARY_TTL_MS = 15_000;
+
+export function getIncomeSummary(from?: Date): Promise<IncomeSummaryStats> {
   const since = from ?? new Date(0);
+  const key = since.getTime() === 0 ? "all" : String(since.getTime());
+  return cached(`income:summary:${key}`, INCOME_SUMMARY_TTL_MS, () => computeIncomeSummary(since));
+}
+
+async function computeIncomeSummary(from: Date): Promise<IncomeSummaryStats> {
+  const since = from;
 
   const [copyRows, hobaniRows, walletRows, productRows, salesRows] = await Promise.all([
     db

@@ -1,3 +1,5 @@
+import type { SQL } from "drizzle-orm";
+import { cached } from "@/lib/cache";
 import { getCopyPricePerGB } from "@/lib/pricing/copy-price-store";
 
 export interface DayStats {
@@ -65,6 +67,10 @@ const EMPTY_DAY: DayStats = {
   hobaniIncome: 0,
 };
 
+const REVENUE_TTL_MS = 10_000;
+const DASHBOARD_STATS_TTL_MS = 15_000;
+const MONTHLY_ADVANCES_TTL_MS = 60_000;
+
 function startOfLocalDay(): Date {
   const now = new Date();
   return new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -121,56 +127,208 @@ function changePercent(current: number, previous: number): number {
   return Number((((current - previous) / previous) * 100).toFixed(1));
 }
 
-async function loadCopyRevenueFor(from: Date, to: Date, pricePerGB: number): Promise<number> {
+type RevenueWindowLabel = "today" | "yesterday" | "week" | "prevWeek" | "month" | "prevMonth";
+
+const REVENUE_WINDOW_LABELS: RevenueWindowLabel[] = [
+  "today",
+  "yesterday",
+  "week",
+  "prevWeek",
+  "month",
+  "prevMonth",
+];
+
+interface RevenueWindows {
+  copy: Record<RevenueWindowLabel, number>;
+  hobani: Record<RevenueWindowLabel, number>;
+  sales: Record<RevenueWindowLabel, number>;
+  wallet: Record<RevenueWindowLabel, number>;
+}
+
+function buildWindows(): { windows: Record<RevenueWindowLabel, [Date, Date]>; earliest: Date } {
+  const todayStart = startOfLocalDay();
+  const tomorrowStart = new Date(todayStart);
+  tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+  const yesterdayStart = new Date(todayStart);
+  yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+
+  const weekStart = new Date(todayStart);
+  weekStart.setDate(weekStart.getDate() - 6);
+  const prevWeekStart = new Date(weekStart);
+  prevWeekStart.setDate(prevWeekStart.getDate() - 7);
+
+  const monthStart = new Date(todayStart.getFullYear(), todayStart.getMonth(), 1);
+  const prevMonthStart = new Date(monthStart);
+  prevMonthStart.setMonth(prevMonthStart.getMonth() - 1);
+
+  const windows: Record<RevenueWindowLabel, [Date, Date]> = {
+    today: [todayStart, tomorrowStart],
+    yesterday: [yesterdayStart, todayStart],
+    week: [weekStart, tomorrowStart],
+    prevWeek: [prevWeekStart, weekStart],
+    month: [monthStart, tomorrowStart],
+    prevMonth: [prevMonthStart, monthStart],
+  };
+
+  return { windows, earliest: prevMonthStart };
+}
+
+/**
+ * Computes all six revenue windows for a single table in one pass instead of
+ * one query per window, cutting the dashboard's revenue work ~6x.
+ */
+function windowSumExpressions(
+  value: unknown,
+  createdAt: unknown,
+  windows: Record<RevenueWindowLabel, [Date, Date]>,
+  sql: typeof import("drizzle-orm").sql,
+): Record<RevenueWindowLabel, SQL<number>> {
+  const out = {} as Record<RevenueWindowLabel, SQL<number>>;
+  for (const label of REVENUE_WINDOW_LABELS) {
+    const [from, to] = windows[label];
+    out[label] = sql<number>`coalesce(sum(case when ${createdAt} >= ${from} and ${createdAt} < ${to} then ${value} end), 0)`;
+  }
+  return out;
+}
+
+function toWindowRecord(row: Record<RevenueWindowLabel, number> | undefined): Record<RevenueWindowLabel, number> {
+  const out: Record<RevenueWindowLabel, number> = {
+    today: 0,
+    yesterday: 0,
+    week: 0,
+    prevWeek: 0,
+    month: 0,
+    prevMonth: 0,
+  };
+  if (!row) return out;
+  for (const label of REVENUE_WINDOW_LABELS) {
+    out[label] = Number(row[label] ?? 0);
+  }
+  return out;
+}
+
+async function loadRevenueWindows(): Promise<RevenueWindows> {
   try {
     const { db, schema } = await import("@/lib/db");
-    const { gte, lt, and, eq, sql } = await import("drizzle-orm");
-    const [row] = await db
-      .select({ bytes: sql<number>`coalesce(sum(${schema.transferJobs.transferredSize}), 0)` })
-      .from(schema.transferJobs)
-      .where(
-        and(
-          eq(schema.transferJobs.status, "COMPLETED"),
-          gte(schema.transferJobs.createdAt, from),
-          lt(schema.transferJobs.createdAt, to),
+    const { and, eq, gte, sql } = await import("drizzle-orm");
+    const { windows, earliest } = buildWindows();
+
+    const copySelect = windowSumExpressions(
+      schema.transferJobs.transferredSize,
+      schema.transferJobs.createdAt,
+      windows,
+      sql,
+    );
+    const hobaniSelect = windowSumExpressions(
+      schema.hobaniIncome.income,
+      schema.hobaniIncome.createdAt,
+      windows,
+      sql,
+    );
+    const salesSelect = windowSumExpressions(
+      schema.productSales.total,
+      schema.productSales.createdAt,
+      windows,
+      sql,
+    );
+    const walletSelect = windowSumExpressions(
+      schema.balanceCharge.amount,
+      schema.balanceCharge.createdAt,
+      windows,
+      sql,
+    );
+
+    const [copyRows, hobaniRows, salesRows, walletRows] = await Promise.all([
+      db
+        .select(copySelect)
+        .from(schema.transferJobs)
+        .where(
+          and(eq(schema.transferJobs.status, "COMPLETED"), gte(schema.transferJobs.createdAt, earliest)),
         ),
-      );
-    const sizeGB = Number(row?.bytes ?? 0) / 1024 ** 3;
-    return sizeGB * pricePerGB;
+      db.select(hobaniSelect).from(schema.hobaniIncome).where(gte(schema.hobaniIncome.createdAt, earliest)),
+      db.select(salesSelect).from(schema.productSales).where(gte(schema.productSales.createdAt, earliest)),
+      db.select(walletSelect).from(schema.balanceCharge).where(gte(schema.balanceCharge.createdAt, earliest)),
+    ]);
+
+    return {
+      copy: toWindowRecord(copyRows[0]),
+      hobani: toWindowRecord(hobaniRows[0]),
+      sales: toWindowRecord(salesRows[0]),
+      wallet: toWindowRecord(walletRows[0]),
+    };
   } catch {
-    return 0;
+    return {
+      copy: { today: 0, yesterday: 0, week: 0, prevWeek: 0, month: 0, prevMonth: 0 },
+      hobani: { today: 0, yesterday: 0, week: 0, prevWeek: 0, month: 0, prevMonth: 0 },
+      sales: { today: 0, yesterday: 0, week: 0, prevWeek: 0, month: 0, prevMonth: 0 },
+      wallet: { today: 0, yesterday: 0, week: 0, prevWeek: 0, month: 0, prevMonth: 0 },
+    };
   }
 }
 
-async function loadRevenueFor(from: Date, to: Date, pricePerGB: number): Promise<number> {
-  try {
-    const { db, schema } = await import("@/lib/db");
-    const { gte, lt, and, sql } = await import("drizzle-orm");
-    const [copies, hobani, sales, wallet] = await Promise.all([
-      loadCopyRevenueFor(from, to, pricePerGB),
-      db
-        .select({ total: sql<number>`coalesce(sum(${schema.hobaniIncome.income}), 0)` })
-        .from(schema.hobaniIncome)
-        .where(and(gte(schema.hobaniIncome.createdAt, from), lt(schema.hobaniIncome.createdAt, to))),
-      db
-        .select({ total: sql<number>`coalesce(sum(${schema.productSales.total}), 0)` })
-        .from(schema.productSales)
-        .where(and(gte(schema.productSales.createdAt, from), lt(schema.productSales.createdAt, to))),
-      db
-        .select({ total: sql<number>`coalesce(sum(${schema.balanceCharge.amount}), 0)` })
-        .from(schema.balanceCharge)
-        .where(and(gte(schema.balanceCharge.createdAt, from), lt(schema.balanceCharge.createdAt, to))),
-    ]);
+function buildRevenueCards(values: Record<RevenueWindowLabel, number>): RevenueCards {
+  return {
+    daily: {
+      current: values.today,
+      previous: values.yesterday,
+      changePercent: changePercent(values.today, values.yesterday),
+    },
+    weekly: {
+      current: values.week,
+      previous: values.prevWeek,
+      changePercent: changePercent(values.week, values.prevWeek),
+    },
+    monthly: {
+      current: values.month,
+      previous: values.prevMonth,
+      changePercent: changePercent(values.month, values.prevMonth),
+    },
+  };
+}
 
-    return (
-      Number(copies ?? 0) +
-      Number(hobani[0]?.total ?? 0) +
-      Number(sales[0]?.total ?? 0) +
-      Number(wallet[0]?.total ?? 0)
-    );
-  } catch {
-    return 0;
+async function computeRevenueWindows(): Promise<{ revenue: RevenueCards; copyRevenue: RevenueCards }> {
+  const [pricePerGB, windows] = await Promise.all([getCopyPricePerGB(), loadRevenueWindows()]);
+
+  const copyValue: Record<RevenueWindowLabel, number> = {
+    today: 0,
+    yesterday: 0,
+    week: 0,
+    prevWeek: 0,
+    month: 0,
+    prevMonth: 0,
+  };
+  const revenueValue: Record<RevenueWindowLabel, number> = {
+    today: 0,
+    yesterday: 0,
+    week: 0,
+    prevWeek: 0,
+    month: 0,
+    prevMonth: 0,
+  };
+
+  for (const label of REVENUE_WINDOW_LABELS) {
+    const copy = (Number(windows.copy[label] ?? 0) / 1024 ** 3) * pricePerGB;
+    copyValue[label] = copy;
+    revenueValue[label] =
+      copy + (Number(windows.hobani[label] ?? 0) + Number(windows.sales[label] ?? 0) + Number(windows.wallet[label] ?? 0));
   }
+
+  return {
+    revenue: buildRevenueCards(revenueValue),
+    copyRevenue: buildRevenueCards(copyValue),
+  };
+}
+
+function getRevenueWindowsCached(): Promise<{ revenue: RevenueCards; copyRevenue: RevenueCards }> {
+  return cached("stats:revenue-windows", REVENUE_TTL_MS, computeRevenueWindows);
+}
+
+export function getRevenueCards(): Promise<RevenueCards> {
+  return getRevenueWindowsCached().then((result) => result.revenue);
+}
+
+export function getCopyRevenueCards(): Promise<RevenueCards> {
+  return getRevenueWindowsCached().then((result) => result.copyRevenue);
 }
 
 async function loadMonthlyAdvances(months: MonthlyRevenuePoint[]): Promise<MonthlyRevenuePoint[]> {
@@ -198,77 +356,28 @@ async function loadMonthlyAdvances(months: MonthlyRevenuePoint[]): Promise<Month
   }
 }
 
-async function computeRevenueCards(
-  periodRevenue: (from: Date, to: Date, pricePerGB: number) => Promise<number>,
-): Promise<RevenueCards> {
-  const todayStart = startOfLocalDay();
-  const tomorrowStart = new Date(todayStart);
-  tomorrowStart.setDate(tomorrowStart.getDate() + 1);
-  const yesterdayStart = new Date(todayStart);
-  yesterdayStart.setDate(yesterdayStart.getDate() - 1);
-
-  const weekStart = new Date(todayStart);
-  weekStart.setDate(weekStart.getDate() - 6);
-  const prevWeekStart = new Date(weekStart);
-  prevWeekStart.setDate(prevWeekStart.getDate() - 7);
-
-  const monthStart = new Date(todayStart.getFullYear(), todayStart.getMonth(), 1);
-  const prevMonthStart = new Date(monthStart);
-  prevMonthStart.setMonth(prevMonthStart.getMonth() - 1);
-
-  const pricePerGB = await getCopyPricePerGB();
-
-  const [todayRevenue, yesterdayRevenue, weekRevenue, prevWeekRevenue, monthRevenue, prevMonthRevenue] =
-    await Promise.all([
-      periodRevenue(todayStart, tomorrowStart, pricePerGB),
-      periodRevenue(yesterdayStart, todayStart, pricePerGB),
-      periodRevenue(weekStart, tomorrowStart, pricePerGB),
-      periodRevenue(prevWeekStart, weekStart, pricePerGB),
-      periodRevenue(monthStart, tomorrowStart, pricePerGB),
-      periodRevenue(prevMonthStart, monthStart, pricePerGB),
-    ]);
-
-  return {
-    daily: {
-      current: todayRevenue,
-      previous: yesterdayRevenue,
-      changePercent: changePercent(todayRevenue, yesterdayRevenue),
-    },
-    weekly: {
-      current: weekRevenue,
-      previous: prevWeekRevenue,
-      changePercent: changePercent(weekRevenue, prevWeekRevenue),
-    },
-    monthly: {
-      current: monthRevenue,
-      previous: prevMonthRevenue,
-      changePercent: changePercent(monthRevenue, prevMonthRevenue),
-    },
-  };
-}
-
-export async function getRevenueCards(): Promise<RevenueCards> {
-  return computeRevenueCards(loadRevenueFor);
-}
-
-export async function getCopyRevenueCards(): Promise<RevenueCards> {
-  return computeRevenueCards(loadCopyRevenueFor);
-}
-
-export async function getDashboardStats(): Promise<DashboardStats> {
-  const todayStart = startOfLocalDay();
-  const yesterdayStart = new Date(todayStart);
-  yesterdayStart.setDate(yesterdayStart.getDate() - 1);
-
-  const today = await loadTodayTransferDayStats(todayStart);
-  today.hobaniIncome = await loadHobaniIncomeFor(todayStart);
-
-  const yesterday = await loadTodayTransferDayStats(yesterdayStart);
-  yesterday.hobaniIncome = await loadHobaniIncomeFor(yesterdayStart);
-
-  const [revenue, revenueChartMonths] = await Promise.all([
-    getRevenueCards(),
+function getMonthlyAdvances(year: number): Promise<MonthlyRevenuePoint[]> {
+  return cached(`stats:advances:${year}`, MONTHLY_ADVANCES_TTL_MS, () =>
     loadMonthlyAdvances(REFERENCE_REVENUE_MONTHS),
+  );
+}
+
+async function computeDashboardStats(): Promise<DashboardStats> {
+  const todayStart = startOfLocalDay();
+  const yesterdayStart = new Date(todayStart);
+  yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+
+  const [today, yesterday, revenue, revenueChartMonths] = await Promise.all([
+    loadTodayTransferDayStats(todayStart).then(async (stats) => {
+      stats.hobaniIncome = await loadHobaniIncomeFor(todayStart);
+      return stats;
+    }),
+    loadTodayTransferDayStats(yesterdayStart).then(async (stats) => {
+      stats.hobaniIncome = await loadHobaniIncomeFor(yesterdayStart);
+      return stats;
+    }),
+    getRevenueCards(),
+    getMonthlyAdvances(new Date().getFullYear()),
   ]);
 
   return {
@@ -280,4 +389,8 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       months: revenueChartMonths,
     },
   };
+}
+
+export function getDashboardStats(): Promise<DashboardStats> {
+  return cached("stats:dashboard", DASHBOARD_STATS_TTL_MS, computeDashboardStats);
 }

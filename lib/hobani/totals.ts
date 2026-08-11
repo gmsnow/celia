@@ -1,5 +1,8 @@
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
+import { cached } from "@/lib/cache";
+
+export const HOBANI_TOTALS_CACHE_KEY = "hobani:totals";
 
 export interface HobaniTotalRow {
   day: Date;
@@ -20,7 +23,13 @@ export interface HobaniIncomeRecord {
   createdByName: string | null;
 }
 
-export async function getHobaniTotals(): Promise<HobaniTotalRow[]> {
+const HOBANI_TOTALS_TTL_MS = 30_000;
+
+export function getHobaniTotals(): Promise<HobaniTotalRow[]> {
+  return cached(HOBANI_TOTALS_CACHE_KEY, HOBANI_TOTALS_TTL_MS, computeHobaniTotals);
+}
+
+async function computeHobaniTotals(): Promise<HobaniTotalRow[]> {
   const rows = await db
     .select({
       day: sql<string>`to_char(date_trunc('day', ${schema.hobaniIncome.createdAt}), 'YYYY-MM-DD')`,

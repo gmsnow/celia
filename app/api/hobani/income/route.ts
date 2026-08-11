@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
+import { getSession, requireApiPermission } from "@/lib/session";
 import { db, schema } from "@/lib/db";
 import { createHobaniIncomeSchema } from "@/lib/hobani/income";
 import {
   deleteHobaniIncomeByDayPeriod,
   getHobaniIncomeRecords,
+  HOBANI_TOTALS_CACHE_KEY,
 } from "@/lib/hobani/totals";
+import { invalidateCached } from "@/lib/cache";
 import { getDictionary, isLocale } from "@/lib/i18n/dictionaries";
 import { logger } from "@/lib/logger";
 
@@ -20,6 +22,9 @@ export async function GET(request: Request) {
   if (!session?.user) {
     return NextResponse.json({ error: t.hobani.unauthorized }, { status: 401 });
   }
+
+  const guard = await requireApiPermission(session.user.id, session.user.role, "total_hobani_income");
+  if (!guard.allowed) return guard.response;
 
   const url = new URL(request.url);
   const day = url.searchParams.get("day");
@@ -48,6 +53,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: t.hobani.unauthorized }, { status: 401 });
   }
 
+  const guard = await requireApiPermission(session.user.id, session.user.role, "add_hobani_income");
+  if (!guard.allowed) return guard.response;
+
   const body = await request.json().catch(() => null);
   const parsed = createHobaniIncomeSchema(t).safeParse(body);
   if (!parsed.success) {
@@ -69,6 +77,7 @@ export async function POST(request: Request) {
       })
       .returning({ id: schema.hobaniIncome.id });
 
+    invalidateCached(HOBANI_TOTALS_CACHE_KEY);
     return NextResponse.json({ success: true, message: t.hobani.successMessage, id: row.id });
   } catch (error) {
     logger.error("hobani income insert failed", { error });
@@ -86,6 +95,9 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: t.hobani.unauthorized }, { status: 401 });
   }
 
+  const guard = await requireApiPermission(session.user.id, session.user.role, "add_hobani_income");
+  if (!guard.allowed) return guard.response;
+
   const body = await request.json().catch(() => null);
   const day = (body?.day as string | undefined)?.trim();
   const period = (body?.period as string | undefined)?.trim();
@@ -96,6 +108,7 @@ export async function DELETE(request: Request) {
 
   try {
     const deleted = await deleteHobaniIncomeByDayPeriod(day, period);
+    invalidateCached(HOBANI_TOTALS_CACHE_KEY);
     return NextResponse.json({
       success: true,
       message: t.hobani.deletedMessage,

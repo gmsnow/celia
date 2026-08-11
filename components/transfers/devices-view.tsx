@@ -48,14 +48,34 @@ export function DevicesView() {
   useEffect(() => {
     let stopped = false;
     let timer: ReturnType<typeof setTimeout>;
-    const tick = async () => {
+
+    function schedule(ms: number) {
+      timer = setTimeout(() => void tick(), ms);
+    }
+
+    async function tick() {
+      if (document.visibilityState !== "visible") {
+        if (!stopped) schedule(60_000);
+        return;
+      }
       await load();
-      if (!stopped) timer = setTimeout(tick, 5000);
-    };
-    timer = setTimeout(tick, 0);
+      if (!stopped) schedule(5_000);
+    }
+
+    schedule(0);
+
+    function onVisibility() {
+      if (document.visibilityState === "visible") {
+        clearTimeout(timer);
+        void tick();
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+
     return () => {
       stopped = true;
       clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [load]);
 

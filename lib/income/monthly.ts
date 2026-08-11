@@ -1,5 +1,6 @@
 import { count, sql, sum } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
+import { cached } from "@/lib/cache";
 import { AR_MONTHS } from "@/lib/i18n/dictionaries";
 
 export interface MonthlyIncomeRow {
@@ -37,7 +38,13 @@ function monthLabel(monthKey: string): string {
   return `${AR_MONTHS[index]} ${year}`;
 }
 
-export async function getMonthlyIncomeStats(): Promise<MonthlyIncomeStats> {
+const MONTHLY_INCOME_TTL_MS = 60_000;
+
+export function getMonthlyIncomeStats(): Promise<MonthlyIncomeStats> {
+  return cached("income:monthly", MONTHLY_INCOME_TTL_MS, computeMonthlyIncomeStats);
+}
+
+async function computeMonthlyIncomeStats(): Promise<MonthlyIncomeStats> {
   const [copyRows, hobaniRows, walletRows] = await Promise.all([
     db
       .select({

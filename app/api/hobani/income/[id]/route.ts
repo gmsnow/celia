@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
-import { getSession } from "@/lib/session";
+import { getSession, requireApiPermission } from "@/lib/session";
 import { db, schema } from "@/lib/db";
 import { createHobaniIncomeSchema } from "@/lib/hobani/income";
+import { HOBANI_TOTALS_CACHE_KEY } from "@/lib/hobani/totals";
+import { invalidateCached } from "@/lib/cache";
 import { getDictionary, isLocale } from "@/lib/i18n/dictionaries";
 import { logger } from "@/lib/logger";
 
@@ -21,6 +23,9 @@ export async function PUT(request: Request, context: Context) {
   if (!session?.user) {
     return NextResponse.json({ error: t.hobani.unauthorized }, { status: 401 });
   }
+
+  const guard = await requireApiPermission(session.user.id, session.user.role, "add_hobani_income");
+  if (!guard.allowed) return guard.response;
 
   const { id } = await context.params;
   const body = await request.json().catch(() => null);
@@ -48,6 +53,7 @@ export async function PUT(request: Request, context: Context) {
       return NextResponse.json({ error: t.hobani.notFound }, { status: 404 });
     }
 
+    invalidateCached(HOBANI_TOTALS_CACHE_KEY);
     return NextResponse.json({
       success: true,
       message: t.hobani.updatedMessage,
@@ -81,6 +87,7 @@ export async function DELETE(request: Request, context: Context) {
       return NextResponse.json({ error: t.hobani.notFound }, { status: 404 });
     }
 
+    invalidateCached(HOBANI_TOTALS_CACHE_KEY);
     return NextResponse.json({ success: true, message: t.hobani.deletedMessage });
   } catch (error) {
     logger.error("hobani income delete failed", { error });

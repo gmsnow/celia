@@ -1,5 +1,6 @@
 import { sql, sum } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
+import { cached } from "@/lib/cache";
 import { HOBANI_PERIODS } from "@/lib/hobani/income";
 
 export type ShiftPeriod = "morning" | "evening";
@@ -20,7 +21,13 @@ export interface ShiftsStats {
   total: number;
 }
 
-export async function getShiftsStats(): Promise<ShiftsStats> {
+const SHIFTS_TTL_MS = 60_000;
+
+export function getShiftsStats(): Promise<ShiftsStats> {
+  return cached("income:shifts", SHIFTS_TTL_MS, computeShiftsStats);
+}
+
+async function computeShiftsStats(): Promise<ShiftsStats> {
   const [copyRows, morningHobaniRows, eveningHobaniRows] = await Promise.all([
     db
       .select({

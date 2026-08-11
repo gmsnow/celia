@@ -20,25 +20,42 @@ export function DashboardContent({ initialStats }: DashboardContentProps) {
   const [stats, setStats] = useState<DashboardStats>(initialStats);
 
   useEffect(() => {
-    let active = true;
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout>;
 
     const load = async () => {
+      if (document.visibilityState !== "visible") {
+        if (!stopped) timer = setTimeout(load, 120_000);
+        return;
+      }
       try {
         const res = await fetch("/api/dashboard/stats", {
           headers: { "Accept-Language": locale },
         });
         if (!res.ok) return;
         const data = (await res.json()) as DashboardStats;
-        if (active) setStats(data);
+        if (!stopped) setStats(data);
       } catch {
         // keep last known stats on network errors
+      } finally {
+        if (!stopped) timer = setTimeout(load, REFRESH_INTERVAL_MS);
       }
     };
 
-    const id = setInterval(load, REFRESH_INTERVAL_MS);
+    timer = setTimeout(load, REFRESH_INTERVAL_MS);
+
+    function onVisibility() {
+      if (document.visibilityState === "visible") {
+        clearTimeout(timer);
+        void load();
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+
     return () => {
-      active = false;
-      clearInterval(id);
+      stopped = true;
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [locale]);
 

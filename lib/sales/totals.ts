@@ -1,5 +1,6 @@
 import { count, desc, eq, sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
+import { cached } from "@/lib/cache";
 
 export interface ProductIncomeRow {
   productId: string;
@@ -40,7 +41,13 @@ function percent(value: number, total: number): number {
   return total > 0 ? Math.round((value / total) * 100) : 0;
 }
 
-export async function getTotalSalesStats(): Promise<TotalSalesStats> {
+const TOTAL_SALES_TTL_MS = 60_000;
+
+export function getTotalSalesStats(): Promise<TotalSalesStats> {
+  return cached("sales:totals", TOTAL_SALES_TTL_MS, computeTotalSalesStats);
+}
+
+async function computeTotalSalesStats(): Promise<TotalSalesStats> {
   const [productRows, copyRows, hobaniRows, walletRows] = await Promise.all([
     db.select({
         productId: schema.products.id,
