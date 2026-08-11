@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
+import { getSession, requireApiPermission } from "@/lib/session";
 import { db, schema } from "@/lib/db";
 import { createExpenseSchema } from "@/lib/expenses/expense";
 import { getExpenses } from "@/lib/expenses/queries";
@@ -11,6 +11,9 @@ export async function GET() {
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const guard = await requireApiPermission(session.user.id, session.user.role, "view_expenses");
+  if (!guard.allowed) return guard.response;
 
   const summary = await getExpenses();
   return NextResponse.json(summary);
@@ -25,6 +28,9 @@ export async function POST(request: Request) {
   if (!session?.user) {
     return NextResponse.json({ error: t.addExpense.unauthorized }, { status: 401 });
   }
+
+  const guard = await requireApiPermission(session.user.id, session.user.role, "add_expenses");
+  if (!guard.allowed) return guard.response;
 
   const body = await request.json().catch(() => null);
   const parsed = createExpenseSchema(t).safeParse(body);

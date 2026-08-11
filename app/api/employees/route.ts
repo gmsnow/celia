@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
+import { getSession, requireApiPermission } from "@/lib/session";
 import { db, schema } from "@/lib/db";
 import { createEmployeeSchema } from "@/lib/employees/employee";
 import { getEmployees } from "@/lib/employees/queries";
@@ -14,6 +14,9 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const guard = await requireApiPermission(session.user.id, session.user.role, "manage_roles");
+  if (!guard.allowed) return guard.response;
+
   const summary = await getEmployees();
   return NextResponse.json(summary);
 }
@@ -27,6 +30,9 @@ export async function POST(request: Request) {
   if (!session?.user) {
     return NextResponse.json({ error: t.employeesManagement.unauthorized }, { status: 401 });
   }
+
+  const guard = await requireApiPermission(session.user.id, session.user.role, "manage_roles");
+  if (!guard.allowed) return guard.response;
 
   const body = await request.json().catch(() => null);
   const parsed = createEmployeeSchema(t).safeParse(body);

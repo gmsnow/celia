@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
-import { getSession } from "@/lib/session";
+import { getSession, requireApiPermission } from "@/lib/session";
 import { db, schema } from "@/lib/db";
 import { createBalanceChargeSchema } from "@/lib/balance/charge";
 import { getDictionary, isLocale } from "@/lib/i18n/dictionaries";
@@ -21,6 +21,9 @@ export async function PUT(request: Request, context: Context) {
   if (!session?.user) {
     return NextResponse.json({ error: t.balance.unauthorized }, { status: 401 });
   }
+
+  const guard = await requireApiPermission(session.user.id, session.user.role, "add_balance");
+  if (!guard.allowed) return guard.response;
 
   const { id } = await context.params;
   const body = await request.json().catch(() => null);
@@ -63,6 +66,9 @@ export async function DELETE(request: Request, context: Context) {
   if (!session?.user) {
     return NextResponse.json({ error: t.balance.unauthorized }, { status: 401 });
   }
+
+  const guard = await requireApiPermission(session.user.id, session.user.role, "add_balance");
+  if (!guard.allowed) return guard.response;
 
   const { id } = await context.params;
 

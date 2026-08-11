@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
+import { getSession, requireApiPermission } from "@/lib/session";
 import { db, schema } from "@/lib/db";
 import { createProductSaleSchema } from "@/lib/sales/product-sale";
 import { getAllProductSales } from "@/lib/products/queries";
@@ -15,6 +15,9 @@ export async function GET(request: Request) {
   if (!session?.user) {
     return NextResponse.json({ error: t.addProduct.unauthorized }, { status: 401 });
   }
+
+  const guard = await requireApiPermission(session.user.id, session.user.role, "sold_products");
+  if (!guard.allowed) return guard.response;
 
   try {
     const rows = await getAllProductSales();
@@ -34,6 +37,9 @@ export async function POST(request: Request) {
   if (!session?.user) {
     return NextResponse.json({ error: t.addProduct.unauthorized }, { status: 401 });
   }
+
+  const guard = await requireApiPermission(session.user.id, session.user.role, "add_product");
+  if (!guard.allowed) return guard.response;
 
   const body = await request.json().catch(() => null);
   const parsed = createProductSaleSchema(t).safeParse(body);

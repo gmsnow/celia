@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { eq, or } from "drizzle-orm";
 import { hashPassword } from "better-auth/crypto";
-import { getSession } from "@/lib/session";
+import { getSession, requireApiPermission } from "@/lib/session";
 import { db, schema } from "@/lib/db";
 import { createUserSchema } from "@/lib/users/user";
 import { getUsers } from "@/lib/users/queries";
@@ -16,6 +16,9 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const guard = await requireApiPermission(session.user.id, session.user.role, "manage_roles");
+  if (!guard.allowed) return guard.response;
+
   const summary = await getUsers();
   return NextResponse.json(summary);
 }
@@ -29,6 +32,9 @@ export async function POST(request: Request) {
   if (!session?.user) {
     return NextResponse.json({ error: t.usersManagement.unauthorized }, { status: 401 });
   }
+
+  const guard = await requireApiPermission(session.user.id, session.user.role, "manage_roles");
+  if (!guard.allowed) return guard.response;
 
   const body = await request.json().catch(() => null);
   const parsed = createUserSchema(t).safeParse(body);

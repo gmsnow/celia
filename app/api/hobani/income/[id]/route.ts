@@ -75,6 +75,9 @@ export async function DELETE(request: Request, context: Context) {
     return NextResponse.json({ error: t.hobani.unauthorized }, { status: 401 });
   }
 
+  const guard = await requireApiPermission(session.user.id, session.user.role, "add_hobani_income");
+  if (!guard.allowed) return guard.response;
+
   const { id } = await context.params;
 
   try {

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
+import { getSession, requireApiPermission } from "@/lib/session";
 import { getCopyPricePerGB, setCopyPricePerGB } from "@/lib/pricing/copy-price-store";
 import { getDictionary, isLocale } from "@/lib/i18n/dictionaries";
 import { logger } from "@/lib/logger";
@@ -11,6 +11,9 @@ export async function GET() {
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const guard = await requireApiPermission(session.user.id, session.user.role, "set_copy_price");
+  if (!guard.allowed) return guard.response;
 
   const pricePerGB = await getCopyPricePerGB();
   return NextResponse.json({ pricePerGB });
@@ -25,9 +28,9 @@ export async function PUT(request: Request) {
   if (!session?.user) {
     return NextResponse.json({ error: t.copyPriceSettings.unauthorized }, { status: 401 });
   }
-  if (session.user.role !== "admin") {
-    return NextResponse.json({ error: t.copyPriceSettings.forbidden }, { status: 403 });
-  }
+
+  const guard = await requireApiPermission(session.user.id, session.user.role, "set_copy_price");
+  if (!guard.allowed) return guard.response;
 
   const body = (await request.json().catch(() => null)) as { pricePerGB?: unknown } | null;
   const pricePerGB = Number(body?.pricePerGB);
