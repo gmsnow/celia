@@ -13,12 +13,10 @@
     "transfer:agent": "tsx scripts/transfer-agent.ts"
   },
   "dependencies": {
-    "@next/swc-win32-x64-msvc": "^16.3.0",
     "better-auth": "^1.6.26",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.2",
     "lightningcss": "^1.32.0",
-    "lightningcss-win32-x64-msvc": "^1.32.0",
     "lucide-react": "^1.30.0",
     "next": "16.3.0",
     "pg": "^8.23.0",
@@ -41,5 +39,9 @@
     "tailwindcss": "^4",
     "tsx": "^4.23.11",
     "typescript": "^5"
+  },
+  "optionalDependencies": {
+    "@next/swc-win32-x64-msvc": "^16.3.0",
+    "lightningcss-win32-x64-msvc": "^1.32.0"
   }
 }
