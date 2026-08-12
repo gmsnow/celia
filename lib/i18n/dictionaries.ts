@@ -24,6 +24,7 @@ const ar = {
   },
   common: {
     initial: "م",
+    loading: "جاري التحميل...",
   },
   header: {
     openMenu: "فتح القائمة",
@@ -917,6 +918,7 @@ const en: Dictionary = {
   },
   common: {
     initial: "U",
+    loading: "Loading...",
   },
   header: {
     openMenu: "Open menu",
