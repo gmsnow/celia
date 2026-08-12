@@ -40,7 +40,7 @@ export function Sidebar({ open, onClose, permissions = [] }: SidebarProps) {
     <>
       {open && (
         <div
-          className="fixed inset-0 z-30 bg-slate-950/50 lg:hidden"
+          className="fixed inset-0 z-30 bg-slate-950/50"
           onClick={onClose}
           aria-hidden="true"
         />
@@ -48,8 +48,8 @@ export function Sidebar({ open, onClose, permissions = [] }: SidebarProps) {
 
       <aside
         className={cn(
-          "fixed inset-y-0 start-0 z-40 flex w-72 flex-col border-e border-border bg-card transition-transform duration-200 lg:static lg:translate-x-0",
-          open ? "translate-x-0" : "translate-x-full",
+          "fixed inset-y-0 start-0 z-40 flex w-72 flex-col border-e border-border bg-card shadow-lg transition-transform duration-200",
+          open ? "translate-x-0" : "ltr:-translate-x-full rtl:translate-x-full",
         )}
       >
         <div className="flex h-16 items-center justify-between border-b border-border px-5">
@@ -57,7 +57,7 @@ export function Sidebar({ open, onClose, permissions = [] }: SidebarProps) {
           <button
             type="button"
             onClick={onClose}
-            className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:hidden"
+            className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             aria-label={t.header.closeMenu}
           >
             <X className="size-5" aria-hidden="true" />

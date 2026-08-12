@@ -120,7 +120,7 @@ export function Header({ user, onToggleSidebar }: HeaderProps) {
         <button
           type="button"
           onClick={onToggleSidebar}
-          className="flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:hidden"
+          className="flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           aria-label={t.header.openMenu}
         >
           <Menu className="size-5" aria-hidden="true" />
