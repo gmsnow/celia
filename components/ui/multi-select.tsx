@@ -27,6 +27,7 @@ export function MultiSelect({
   hasError,
 }: MultiSelectProps) {
   const [open, setOpen] = useState(false);
+  const [openUp, setOpenUp] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -48,7 +49,7 @@ export function MultiSelect({
 
   const selected = options.filter((option) => value.includes(option.value));
 
-  function toggle(optionValue: string) {
+  function toggleOption(optionValue: string) {
     if (value.includes(optionValue)) {
       onChange(value.filter((v) => v !== optionValue));
     } else {
@@ -56,11 +57,20 @@ export function MultiSelect({
     }
   }
 
+  function handleToggle() {
+    if (!open) {
+      const rect = rootRef.current?.getBoundingClientRect();
+      const spaceBelow = rect ? window.innerHeight - rect.bottom : 0;
+      setOpenUp(spaceBelow < 320);
+    }
+    setOpen((prev) => !prev);
+  }
+
   return (
     <div ref={rootRef} className="relative">
       <button
         type="button"
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={handleToggle}
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -91,7 +101,10 @@ export function MultiSelect({
         <div
           role="listbox"
           aria-multiselectable="true"
-          className="absolute inset-x-0 top-full z-50 mt-1 max-h-64 overflow-y-auto rounded-xl border border-border bg-card p-1.5 shadow-xl"
+          className={cn(
+            "absolute inset-x-0 z-50 max-h-64 overflow-y-auto rounded-xl border border-border bg-card p-1.5 shadow-xl",
+            openUp ? "bottom-full mb-1" : "top-full mt-1",
+          )}
         >
           {options.length === 0 && (
             <p className="px-3 py-2 text-sm text-muted-foreground">{placeholder}</p>
@@ -104,7 +117,7 @@ export function MultiSelect({
                 type="button"
                 role="option"
                 aria-selected={checked}
-                onClick={() => toggle(option.value)}
+                onClick={() => toggleOption(option.value)}
                 className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-start text-sm transition-colors hover:bg-muted"
               >
                 <span
