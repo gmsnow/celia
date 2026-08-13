@@ -331,34 +331,77 @@ export function getCopyRevenueCards(): Promise<RevenueCards> {
   return getRevenueWindowsCached().then((result) => result.copyRevenue);
 }
 
-async function loadMonthlyAdvances(months: MonthlyRevenuePoint[]): Promise<MonthlyRevenuePoint[]> {
+async function loadMonthlyRevenuePoints(months: MonthlyRevenuePoint[]): Promise<MonthlyRevenuePoint[]> {
   try {
     const { db, schema } = await import("@/lib/db");
-    const { eq, sql } = await import("drizzle-orm");
+    const { eq, sql, sum } = await import("drizzle-orm");
     const year = new Date().getFullYear();
-    const rows = await db
-      .select({
-        month: sql<number>`extract(month from ${schema.advances.advanceDate})`,
-        total: sql<number>`coalesce(sum(${schema.advances.amount}::numeric), 0)`,
-      })
-      .from(schema.advances)
-      .where(eq(sql`extract(year from ${schema.advances.advanceDate})`, year))
-      .groupBy(sql`extract(month from ${schema.advances.advanceDate})`);
+    const monthOf = (col: unknown) => sql<number>`extract(month from ${col})`;
+    const yearOf = (col: unknown) => sql<number>`extract(year from ${col})`;
 
-    const result = months.map((m) => ({ ...m }));
-    for (const row of rows) {
-      const index = Number(row.month) - 1;
-      if (result[index]) result[index].advance = Number(row.total ?? 0);
-    }
-    return result;
+    const [copyRows, hobaniRows, salesRows, walletRows, expenseRows, advanceRows] = await Promise.all([
+      db
+        .select({ month: monthOf(schema.copyRecords.copiedAt), total: sql<number>`coalesce(sum(${schema.copyRecords.price}::numeric), 0)` })
+        .from(schema.copyRecords)
+        .where(eq(yearOf(schema.copyRecords.copiedAt), year))
+        .groupBy(monthOf(schema.copyRecords.copiedAt)),
+      db
+        .select({ month: monthOf(schema.hobaniIncome.createdAt), total: sql<number>`coalesce(sum(${schema.hobaniIncome.income}::numeric), 0)` })
+        .from(schema.hobaniIncome)
+        .where(eq(yearOf(schema.hobaniIncome.createdAt), year))
+        .groupBy(monthOf(schema.hobaniIncome.createdAt)),
+      db
+        .select({ month: monthOf(schema.productSales.createdAt), total: sql<number>`coalesce(sum(${schema.productSales.total}::numeric), 0)` })
+        .from(schema.productSales)
+        .where(eq(yearOf(schema.productSales.createdAt), year))
+        .groupBy(monthOf(schema.productSales.createdAt)),
+      db
+        .select({ month: monthOf(schema.balanceCharge.createdAt), total: sql<number>`coalesce(sum(${schema.balanceCharge.amount}::numeric), 0)` })
+        .from(schema.balanceCharge)
+        .where(eq(yearOf(schema.balanceCharge.createdAt), year))
+        .groupBy(monthOf(schema.balanceCharge.createdAt)),
+      db
+        .select({ month: monthOf(schema.expenses.expenseDate), total: sql<number>`coalesce(sum(${schema.expenses.amount}::numeric), 0)` })
+        .from(schema.expenses)
+        .where(eq(yearOf(schema.expenses.expenseDate), year))
+        .groupBy(monthOf(schema.expenses.expenseDate)),
+      db
+        .select({ month: monthOf(schema.advances.advanceDate), total: sql<number>`coalesce(sum(${schema.advances.amount}::numeric), 0)` })
+        .from(schema.advances)
+        .where(eq(yearOf(schema.advances.advanceDate), year))
+        .groupBy(monthOf(schema.advances.advanceDate)),
+    ]);
+
+    const monthTotal = (rows: { month: number; total: number }[]): Record<number, number> => {
+      const out: Record<number, number> = {};
+      for (const row of rows) out[Number(row.month)] = Number(row.total ?? 0);
+      return out;
+    };
+
+    const copy = monthTotal(copyRows);
+    const hobani = monthTotal(hobaniRows);
+    const sales = monthTotal(salesRows);
+    const wallet = monthTotal(walletRows);
+    const expenses = monthTotal(expenseRows);
+    const advance = monthTotal(advanceRows);
+
+    return months.map((m, index) => {
+      const month = index + 1;
+      return {
+        ...m,
+        profit: (copy[month] ?? 0) + (hobani[month] ?? 0) + (sales[month] ?? 0) + (wallet[month] ?? 0),
+        expenses: expenses[month] ?? 0,
+        advance: advance[month] ?? 0,
+      };
+    });
   } catch {
     return months;
   }
 }
 
-function getMonthlyAdvances(year: number): Promise<MonthlyRevenuePoint[]> {
-  return cached(`stats:advances:${year}`, MONTHLY_ADVANCES_TTL_MS, () =>
-    loadMonthlyAdvances(REFERENCE_REVENUE_MONTHS),
+function getMonthlyRevenuePoints(year: number): Promise<MonthlyRevenuePoint[]> {
+  return cached(`stats:revenue-chart:${year}`, MONTHLY_ADVANCES_TTL_MS, () =>
+    loadMonthlyRevenuePoints(REFERENCE_REVENUE_MONTHS),
   );
 }
 
@@ -377,7 +420,7 @@ async function computeDashboardStats(): Promise<DashboardStats> {
       return stats;
     }),
     getRevenueCards(),
-    getMonthlyAdvances(new Date().getFullYear()),
+    getMonthlyRevenuePoints(new Date().getFullYear()),
   ]);
 
   return {
