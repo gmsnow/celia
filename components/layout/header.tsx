@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -24,12 +24,14 @@ import { cn } from "@/lib/cn";
 import { roleLabel } from "@/lib/roles";
 import { authClient } from "@/lib/auth-client";
 import { useLocale } from "@/lib/i18n/locale-provider";
+import { filterSections, flattenPages, getSidebarSections } from "@/lib/nav";
 import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 
 interface HeaderProps {
   user: { name: string; role?: string | null; permissions?: string[] };
   onToggleSidebar: () => void;
+  onToggleCollapsed?: () => void;
 }
 
 type OpenMenu = "messages" | "notifications" | "user" | null;
@@ -74,19 +76,39 @@ const NOTIFICATIONS = [
   { icon: FileText, textKey: "newReports", timeKey: "twoDays" },
 ] as const;
 
-export function Header({ user, onToggleSidebar }: HeaderProps) {
+export function Header({ user, onToggleSidebar, onToggleCollapsed }: HeaderProps) {
   const router = useRouter();
   const { t } = useLocale();
   const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  const searchRootRef = useRef<HTMLDivElement>(null);
 
   const canAccessHome =
     user.role === "admin" ||
     !user.permissions ||
     user.permissions.length === 0 ||
     user.permissions.includes("dashboard");
+
+  const pages = useMemo(() => {
+    const sections =
+      user.role === "admin"
+        ? getSidebarSections(t)
+        : filterSections(getSidebarSections(t), user.permissions ?? []);
+    return flattenPages(sections);
+  }, [t, user.role, user.permissions]);
+
+  const results = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    return pages.filter((page) => page.label.toLowerCase().includes(q)).slice(0, 8);
+  }, [pages, query]);
+
+  useEffect(() => {
+    if (searchOpen) searchRef.current?.focus();
+  }, [searchOpen]);
 
   useEffect(() => {
     function onFullscreenChange() {
@@ -97,8 +119,35 @@ export function Header({ user, onToggleSidebar }: HeaderProps) {
   }, []);
 
   useEffect(() => {
-    if (searchOpen) searchRef.current?.focus();
-  }, [searchOpen]);
+    function onClick(event: MouseEvent) {
+      if (searchRootRef.current && !searchRootRef.current.contains(event.target as Node)) {
+        setSearchOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
+
+  function closeSearch() {
+    setSearchOpen(false);
+    setQuery("");
+  }
+
+  function goToPage(href: string) {
+    closeSearch();
+    router.push(href);
+  }
+
+  function onSearchKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Escape") {
+      closeSearch();
+    } else if (event.key === "Enter") {
+      if (results.length > 0) {
+        event.preventDefault();
+        goToPage(results[0].href);
+      }
+    }
+  }
 
   function toggleFullscreen() {
     if (document.fullscreenElement) {
@@ -119,7 +168,13 @@ export function Header({ user, onToggleSidebar }: HeaderProps) {
       <div className="flex h-16 items-center gap-1 px-2 sm:px-4">
         <button
           type="button"
-          onClick={onToggleSidebar}
+          onClick={() => {
+            if (window.matchMedia("(min-width: 1024px)").matches) {
+              onToggleCollapsed?.();
+            } else {
+              onToggleSidebar();
+            }
+          }}
           className="flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           aria-label={t.header.openMenu}
         >
@@ -146,39 +201,71 @@ export function Header({ user, onToggleSidebar }: HeaderProps) {
         </nav>
 
         <div className="ms-auto flex items-center gap-0.5">
-          <div className="relative">
+          <div className="relative" ref={searchRootRef}>
             <button
               type="button"
               onClick={() => {
                 setOpenMenu(null);
                 setSearchOpen((v) => !v);
               }}
-          className="flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:hidden"
+              className="flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               aria-label={t.header.search}
             >
               <Search className="size-5" aria-hidden="true" />
             </button>
             {searchOpen && (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  setSearchOpen(false);
-                }}
-                className="absolute end-0 top-full mt-2 w-64 rounded-xl border border-border bg-card p-2 shadow-lg"
-              >
-                <div className="relative">
-                  <Search
-                    className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-                    aria-hidden="true"
-                  />
-                  <input
-                    ref={searchRef}
-                    type="search"
-                    placeholder={t.header.searchPlaceholder}
-                    className="h-10 w-full rounded-lg border border-input bg-background ps-9 pe-3 text-sm outline-none transition-colors focus:border-ring focus:ring-2 focus:ring-ring/30"
-                  />
+              <div className="absolute end-0 top-full mt-2 w-72 overflow-hidden rounded-xl border border-border bg-card shadow-lg">
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (results.length > 0) goToPage(results[0].href);
+                  }}
+                >
+                  <div className="relative border-b border-border p-2">
+                    <Search
+                      className="pointer-events-none absolute start-5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                      aria-hidden="true"
+                    />
+                    <input
+                      ref={searchRef}
+                      type="search"
+                      value={query}
+                      onChange={(event) => setQuery(event.target.value)}
+                      onKeyDown={onSearchKeyDown}
+                      placeholder={t.header.searchPlaceholder}
+                      className="h-10 w-full rounded-lg border border-input bg-background ps-9 pe-3 text-sm outline-none transition-colors focus:border-ring focus:ring-2 focus:ring-ring/30"
+                    />
+                  </div>
+                </form>
+                <div className="max-h-72 overflow-y-auto p-1">
+                  {query.trim() ? (
+                    results.length > 0 ? (
+                      <ul role="listbox" aria-label={t.header.searchResults}>
+                        {results.map((page) => (
+                          <li key={page.href} role="option" aria-selected="false">
+                            <button
+                              type="button"
+                              onClick={() => goToPage(page.href)}
+                              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-start text-sm text-foreground transition-colors hover:bg-muted"
+                            >
+                              {page.icon && <page.icon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
+                              <span className="min-w-0 truncate">{page.label}</span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="px-3 py-3 text-center text-sm text-muted-foreground">
+                        {t.header.noResults}
+                      </p>
+                    )
+                  ) : (
+                    <p className="px-3 py-3 text-center text-sm text-muted-foreground">
+                      {t.header.searchHint}
+                    </p>
+                  )}
                 </div>
-              </form>
+              </div>
             )}
           </div>
 

@@ -345,35 +345,3 @@ function containsActive(link: SidebarLink, pathname: string): boolean {
   if (link.href === pathname) return true;
   return !!link.children?.some((child) => containsActive(child, pathname));
 }
-
-function isLinkAllowed(link: SidebarLink, permissions: string[]): boolean {
-  if (!link.permission) return true;
-  const keys = Array.isArray(link.permission) ? link.permission : [link.permission];
-  return keys.some((key) => permissions.includes(key));
-}
-
-function filterLinks(links: SidebarLink[], permissions: string[]): SidebarLink[] {
-  const filtered: SidebarLink[] = [];
-  for (const link of links) {
-    if (link.children && link.children.length > 0) {
-      const children = filterLinks(link.children, permissions);
-      if (link.href || children.length > 0) {
-        filtered.push({ ...link, children });
-      }
-      continue;
-    }
-    if (isLinkAllowed(link, permissions)) {
-      filtered.push(link);
-    }
-  }
-  return filtered;
-}
-
-function filterSections(sections: SidebarSection[], permissions: string[]): SidebarSection[] {
-  return sections
-    .map((section) => ({ ...section, links: filterLinks(section.links, permissions) }))
-    .filter((section) => section.links.length > 0);
-}
-
-
-}

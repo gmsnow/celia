@@ -42,6 +42,57 @@ export interface SidebarSection {
   links: SidebarLink[];
 }
 
+export function isLinkAllowed(link: SidebarLink, permissions: string[]): boolean {
+  if (!link.permission) return true;
+  const keys = Array.isArray(link.permission) ? link.permission : [link.permission];
+  return keys.some((key) => permissions.includes(key));
+}
+
+export function filterLinks(links: SidebarLink[], permissions: string[]): SidebarLink[] {
+  const filtered: SidebarLink[] = [];
+  for (const link of links) {
+    if (link.children && link.children.length > 0) {
+      const children = filterLinks(link.children, permissions);
+      if (link.href || children.length > 0) {
+        filtered.push({ ...link, children });
+      }
+    } else if (isLinkAllowed(link, permissions)) {
+      filtered.push(link);
+    }
+  }
+  return filtered;
+}
+
+export function filterSections(
+  sections: SidebarSection[],
+  permissions: string[],
+): SidebarSection[] {
+  return sections
+    .map((section) => ({ ...section, links: filterLinks(section.links, permissions) }))
+    .filter((section) => section.links.length > 0);
+}
+
+export interface FlatPage {
+  label: string;
+  href: string;
+  icon?: LucideIcon;
+}
+
+export function flattenPages(sections: SidebarSection[]): FlatPage[] {
+  const pages: FlatPage[] = [];
+  function walk(links: SidebarLink[]) {
+    for (const link of links) {
+      const children = link.children ?? [];
+      if (link.href) {
+        pages.push({ label: link.label, href: link.href, icon: link.icon });
+      }
+      walk(children);
+    }
+  }
+  for (const section of sections) walk(section.links);
+  return pages;
+}
+
 export function getSidebarSections(t: Dictionary): SidebarSection[] {
   const s = t.sidebar;
   return [
