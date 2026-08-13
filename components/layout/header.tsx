@@ -153,7 +153,7 @@ export function Header({ user, onToggleSidebar }: HeaderProps) {
                 setOpenMenu(null);
                 setSearchOpen((v) => !v);
               }}
-              className="flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:hidden"
               aria-label={t.header.search}
             >
               <Search className="size-5" aria-hidden="true" />

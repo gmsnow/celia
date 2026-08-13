@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import type { DashboardStats } from "@/lib/dashboard/stats";
 import { useLocale } from "@/lib/i18n/locale-provider";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
@@ -30,6 +30,27 @@ function lookupTitle(dict: Dictionary, path: string): string {
   return typeof value === "string" ? value : "";
 }
 
+const SIDEBAR_COLLAPSED_KEY = "celia-sidebar-collapsed";
+
+const sidebarCollapsedListeners = new Set<() => void>();
+
+function subscribeSidebarCollapsed(callback: () => void) {
+  sidebarCollapsedListeners.add(callback);
+  return () => {
+    sidebarCollapsedListeners.delete(callback);
+  };
+}
+
+function readSidebarCollapsed(): boolean {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
+}
+
+function toggleSidebarCollapsed() {
+  localStorage.setItem(SIDEBAR_COLLAPSED_KEY, readSidebarCollapsed() ? "0" : "1");
+  sidebarCollapsedListeners.forEach((callback) => callback());
+}
+
 export function DashboardShell({
   user,
   todayLabel,
@@ -39,7 +60,12 @@ export function DashboardShell({
   initialStats,
   children,
 }: DashboardShellProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const collapsed = useSyncExternalStore(
+    subscribeSidebarCollapsed,
+    readSidebarCollapsed,
+    () => false,
+  );
   const { locale, t } = useLocale();
 
   const resolvedTodayLabel = useMemo(
@@ -63,10 +89,16 @@ export function DashboardShell({
 
   return (
     <div className="flex min-h-dvh">
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} permissions={user.permissions} />
+      <Sidebar
+        collapsed={collapsed}
+        onToggleCollapsed={toggleSidebarCollapsed}
+        mobileOpen={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+        permissions={user.permissions}
+      />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <Header user={user} onToggleSidebar={() => setSidebarOpen(true)} />
+        <Header user={user} onToggleSidebar={() => setMobileOpen(true)} />
 
         <main className="flex-1 p-4 sm:p-6">
           <div className="mb-4">
