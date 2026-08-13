@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { ChevronDown, ChevronsLeft, ChevronsRight, X } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { ChevronDown, Menu, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { filterSections, getSidebarSections, type SidebarLink, type SidebarSection } from "@/lib/nav";
 import { useLocale } from "@/lib/i18n/locale-provider";
@@ -19,11 +19,27 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onClose, permissions = [] }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const { t } = useLocale();
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [toggled, setToggled] = useState<Set<string>>(() => new Set());
 
-  const sections = filterSections(getSidebarSections(t), permissions);
+  const sections = useMemo(
+    () => filterSections(getSidebarSections(t), permissions),
+    [t, permissions],
+  );
+
+  useEffect(() => {
+    const routes = new Set<string>();
+    const walk = (links: SidebarLink[]) => {
+      for (const link of links) {
+        if (link.href) routes.add(link.href);
+        if (link.children?.length) walk(link.children);
+      }
+    };
+    for (const section of sections) walk(section.links);
+    for (const route of routes) router.prefetch(route);
+  }, [router, sections]);
 
   function toggle(label: string) {
     setExpanded((prev) => {
@@ -42,7 +58,7 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onClose, per
     <>
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-30 bg-slate-950/50 lg:hidden"
+          className="fixed inset-0 z-30 bg-slate-950/50 sm:hidden"
           onClick={onClose}
           aria-hidden="true"
         />
@@ -50,7 +66,7 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onClose, per
 
       <aside
         className={cn(
-          "fixed inset-y-0 start-0 z-40 flex w-72 flex-col border-e border-border bg-card shadow-lg transition-transform duration-200 lg:hidden",
+          "fixed inset-y-0 start-0 z-40 flex w-72 flex-col border-e border-border bg-card shadow-lg transition-transform duration-200 sm:hidden",
           mobileOpen ? "translate-x-0" : "ltr:-translate-x-full rtl:translate-x-full",
         )}
       >
@@ -67,7 +83,7 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onClose, per
 
       <aside
         className={cn(
-          "relative z-30 hidden flex-col border-e border-border bg-card transition-[width] duration-300 lg:flex",
+          "relative z-30 hidden flex-col border-e border-border bg-card transition-[width] duration-300 sm:flex",
           collapsed ? "w-16" : "w-64",
         )}
       >
@@ -107,8 +123,8 @@ function DesktopHeader({ collapsed, onToggleCollapsed }: { collapsed: boolean; o
   return (
     <div
       className={cn(
-        "flex h-16 items-center border-b border-border",
-        collapsed ? "justify-center px-0" : "justify-between px-5",
+        "flex h-16 shrink-0 items-center border-b border-border",
+        collapsed ? "justify-center px-0" : "justify-between px-3",
       )}
     >
       {!collapsed && <Logo />}
@@ -117,12 +133,9 @@ function DesktopHeader({ collapsed, onToggleCollapsed }: { collapsed: boolean; o
         onClick={onToggleCollapsed}
         className="flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         aria-label={collapsed ? t.header.openMenu : t.header.closeMenu}
+        aria-expanded={!collapsed}
       >
-        {collapsed ? (
-          <ChevronsRight className="size-5 rtl:-scale-x-100" aria-hidden="true" />
-        ) : (
-          <ChevronsLeft className="size-5 rtl:-scale-x-100" aria-hidden="true" />
-        )}
+        <Menu className="size-5" aria-hidden="true" />
       </button>
     </div>
   );

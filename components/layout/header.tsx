@@ -31,7 +31,7 @@ import { ThemeToggle } from "@/components/layout/theme-toggle";
 interface HeaderProps {
   user: { name: string; role?: string | null; permissions?: string[] };
   onToggleSidebar: () => void;
-  onToggleCollapsed?: () => void;
+  onToggleCollapsed: () => void;
 }
 
 type OpenMenu = "messages" | "notifications" | "user" | null;
@@ -169,8 +169,8 @@ export function Header({ user, onToggleSidebar, onToggleCollapsed }: HeaderProps
         <button
           type="button"
           onClick={() => {
-            if (window.matchMedia("(min-width: 1024px)").matches) {
-              onToggleCollapsed?.();
+            if (window.matchMedia("(min-width: 640px)").matches) {
+              onToggleCollapsed();
             } else {
               onToggleSidebar();
             }

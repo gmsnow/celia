@@ -1,7 +1,7 @@
 # PROJECT_MAP.md — Internet Café Management System (CelíA)
 
 > وثيقة الحالة الحية للمشروع. تُحدَّث بعد كل ميزة (بروتوكول State Sync).
-> آخر تحديث: 2026-08-11 (M0–M12 مكتملة)
+> آخر تحديث: 2026-08-14 (M0–M13 مكتملة)
 
 ---
 
@@ -22,6 +22,7 @@
 | **M10 — `/totalOfHobani` تعديل/حذف** | ✅ مكتمل | توسيع صفوف الإجمالي (يوم+فترة) إلى سجلات فردية: زر عين يعرض سجلات الدخل في مودال (دخل/نوع الكرت/العدد/الوقت/الموظف) مع تعديل/حذف لكل سجل، وحذف المجموعة كاملة بتأكيد من خطوتين. `GET`/`DELETE` على `/api/hobani/income` (سجلات اليوم/الفترة + حذف مجموعة) + `PUT`/`DELETE` على `/api/hobani/income/[id]` (محمية + Zod)، نموذج `HobaniIncomeForm` يدعم وضع التعديل (`initialData`) |
 | **M11 — `/totalOfbalence` تعديل/حذف** | ✅ مكتمل | إجراءات تعديل + حذف لعمليات شحن الرصيد: `PUT`/`DELETE` على `/api/balance/charge/[id]` (محمية + Zod + 404)، نموذج `BalanceChargeForm` يدعم وضع التعديل (`initialData` يملأ المزود/المبلغ/الملاحظات)، حذف بتأكيد من خطوتين داخل الجدول، تحديث الإجمالي/العدد مباشرة بعد كل عملية |
 | **M12 — حجب الصفحات بالصلاحيات** | ✅ مكتمل | حماية على مستوى الخادم: `requirePagePermission(key)` في كل صفحة (تحويل إلى `/forbidden` عند نقص الصلاحية) + `requireApiPermission` على واجهات API الداعمة + فلترة قائمة الجانب والهيدر حسب `permissions` المستخدم + صفحة `/forbidden` (عربية/إنجليزية) + bypass كامل لدور `admin`. الصلاحيات تُقرأ من عمود `permissions` (jsonb) في جدول `user` |
+| **M13 — أداء التنقل (Instant Nav)** | ✅ مكتمل | زمن التنقل بين صفحات اللوحة ~26 صفحة: (1) مجموعة مسارات `(dashboard)` بتخطيط `layout.tsx` خادمي ثابت يستدعي `requireUser`+`getUserPermissions` **مرة واحدة** ويُحمّل `DashboardShell` — الـ Shell (Sidebar+Header) يبقى محمّلاً عبر التنقل بدل إعادة إنشائه في كل صفحة؛ (2) `loading.tsx` (boundary) يجعل المسارات الديناميكية قابلة للـ prefetch (بدونه يُتخطّى الـ prefetch لكل المسارات الديناميكية)؛ (3) `experimental.staleTimes { dynamic: 30, static: 60 }` لزمن حياة كاش العميل؛ (4) `router.prefetch(href)` لكل روابط القائمة في `sidebar.tsx` عند أول تحميل؛ (5) مكوّن `PageHeader` موحّد (title + breadcrumb + today label) يحل محل منطق العنوان داخل الـ Shell |
 
 **التحقق (Production build + خادم حي):**
 - `POST /api/auth/sign-in/username` (admin/admin) → 200 + توكن + `celia.session_token` (HttpOnly)
@@ -30,6 +31,7 @@
 - خطأ كلمة المرور → 401 `INVALID_USERNAME_OR_PASSWORD`؛ `POST /api/auth/sign-out` → `{"success":true}`
 - **M6 API حي:** `POST /api/agent/register` → 200 (يُصدر `apiKey`)؛ `POST /api/agent/heartbeat` (رؤوس `x-agent-id`+`x-agent-key`) → 200 + قائمة مشاركات NAS بكلماتها المشفّرة؛ `POST /api/agent/devices` → upsert أجهزة + فصل غير المتصلة؛ `GET /api/agent/jobs` → أول `PENDING` للوكيل (مع مسار المصدر UNC كاملاً)؛ `start/progress/complete` → تحديث الحالة والحجم والسرعة والمدة؛ سجل تدقيق `TRANSFER_COMPLETED` يُكتب. ✔ مُختبَر End-to-End (ثم حُذفت بيانات الاختبار)
 - **التحقق الخامل:** `npx tsc --noEmit` نظيف، `npm run lint` نظيف، `npm run build` ينجح مع جميع المسارات (أدوات/صفحات).
+- **M13 تحقق:** `npm run build` ينجح (كامل المسارات) + lint نظيف + خادم dev حي (`/login` → 200، `/dailyIncome` بلا جلسة → 307). `staleTimes` تحت `experimental` في Next 16 (`next.config.ts`).
 
 ---
 
@@ -87,16 +89,23 @@ Login (Auth) → Authorization (RBAC)
 ```text
   app/
     layout.tsx               # lang=ar dir=rtl، Cairo (next/font)، metadata "… | سيليا"
-    page.tsx                 # `/` — لوحة التحكم (requireUser + getDashboardStats)
-    hobaniAdd/page.tsx       # `/hobaniAdd` — اضافة دخل الحوباني (نموذج + Shell عام)
-    login/page.tsx           # صفحة الدخول (خلفية celiaLogin.jfif + بطاقة تسجيل الدخول)
-    balenceSelles/page.tsx   # `/balenceSelles` — بيع رصيد (Zod → API → DB)
-    totalOfHobani/page.tsx   # `/totalOfHobani` — عرض اجمالي دخل الحوباني
+    loading.tsx              # loading عام (جذر)
+  (dashboard)/               # مجموعة مسارات اللوحة — تخطيط ثابت يحافظ على الـ Shell عبر التنقل
+    layout.tsx               # خادم — requireUser + getUserPermissions مرة واحدة ثم <DashboardShell>{children}
+    loading.tsx              # <PageLoading/> — boundary يجعل المسارات الديناميكية قابلة للـ prefetch
+    page.tsx                 # `/` — لوحة التحكم (requirePagePermission + getDashboardStats)
     dailyIncome/page.tsx     # `/dailyIncome` — الدخل اليومي
     weeklyIncome/page.tsx    # `/weeklyIncome` — الدخل الأسبوعي
     monthlyIncome/page.tsx   # `/monthlyIncome` — الدخل الشهري (دونات + جداول)
     totalOfSelles/page.tsx   # `/totalOfSelles` — عرض اجمالي دخل المبيعات (جداول فئات + دونات + مبيعات)
     totalOfbalence/page.tsx  # `/totalOfbalence` — عرض اجمالي شحن التطبيقات (نموذج شحن + سجل العمليات)
+    totalOfHobani/page.tsx   # `/totalOfHobani` — عرض اجمالي دخل الحوباني
+    allProduct / showExpenses / showAdvance / employees / users / salaryPage /
+    shifts / embedcopyPrice / embedProductPrice / transfers(+devices/history/settings)
+    # كلها: requirePagePermission ثم <PageHeader titleKey/> + المحتوى (بلا DashboardShell)
+  login/page.tsx             # صفحة الدخول (خلفية celiaLogin.jfif + بطاقة تسجيل الدخول)
+  forbidden/page.tsx         # صفحة نقص الصلاحية
+  copyTable/page.tsx         # قائمة نسخ مستقل (خارج اللوحة)
   transfers/page.tsx       # `/transfers` — لوحة التحويلات (تحديث دوري 5 ثوانٍ)
   transfers/new/page.tsx   # `/transfers/new` — إنشاء تحويل (اختيار جهاز + مشاركة NAS + تصفح SMB)
   transfers/active/page.tsx# `/transfers/active` — التحويلات النشطة + إلغاء
@@ -139,7 +148,8 @@ proxy.ts                   # Next 16 Proxy — حماية/توجيه الجلس�
     dashboard/sales-chart.tsx# عميل — AreaChart (Recharts) أو حالة "لا بيانات"
     dashboard/report-card.tsx# عميل — ملخص شهري (رسم + مراقبة 24 ساعة + مقارنات الأمس)
     dashboard/dashboard-content.tsx # عميل — جلب/تحديث دوري (30 ثانية) وتجميع البطاقات
-    dashboard/dashboard-shell.tsx   # عميل — Shell عام (Sidebar + Topbar + Breadcrumb + محتوى/أطفال)
+    dashboard/dashboard-shell.tsx   # عميل — Shell عام ثابت (Sidebar + Header) يبقى محمّلاً عبر التنقل داخل (dashboard)
+    dashboard/page-header.tsx       # عميل — العنوان + breadcrumb + تاريخ اليوم (من الـ dictionary)
   hobani/hobani-income-form.tsx   # عميل — نموذج دخل الحوباني (Zod + رسائل نجاح/خطأ)
   hobani/hobani-totals-table.tsx  # عميل — جدول اجمالي الحوباني
   balance/balance-charge-form.tsx # عميل — نموذج شحن الرصيد (مزود/مبلغ/ملاحظات + وضع تعديل initialData)
@@ -161,10 +171,10 @@ lib/
   db/index.ts              # Pool + drizzle(schema) + export schema
   auth/index.ts            # betterAuth config (plugins: [username(...)]، role additionalField)
   auth-client.ts           # createAuthClient + usernameClient (NEXT_PUBLIC_APP_URL)
-  session.ts               # getSession (cached) + requireUser (redirect /login)
+  session.ts               # getSession (cached) + requireUser (redirect /login) + requirePagePermission (redirect /forbidden)
   logger.ts                # Logging غير حظري (Async) — debug/info/warn/error + LOG_LEVEL
   roles.ts                 # ROLE_LABELS + roleLabel
-  nav.ts                   # getSidebarSections — قائمة الجانب (نظام التحويلات جديد)
+  nav.ts                   # getSidebarSections — قائمة الجانب (نظام التحويلات جديد) + flattenPages للـ prefetch
   format.ts                # formatCurrency (YER) / formatNumber / formatPercent / formatPercentSigned
   cn.ts                    # clsx + tailwind-merge
   dashboard/compare.ts     # مقارنة اليوم/الأمس (diff, percent, status)
