@@ -175,7 +175,7 @@ export function Header({ user, onToggleSidebar, onToggleCollapsed }: HeaderProps
               onToggleSidebar();
             }
           }}
-          className="flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:hidden"
           aria-label={t.header.openMenu}
         >
           <Menu className="size-5" aria-hidden="true" />
