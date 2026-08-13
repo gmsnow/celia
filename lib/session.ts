@@ -11,7 +11,7 @@ export const getSession = cache(async () => {
   return session;
 });
 
-export async function getUserPermissions(userId: string): Promise<string[]> {
+export const getUserPermissions = cache(async (userId: string): Promise<string[]> => {
   const rows = await db
     .select({ permissions: schema.users.permissions })
     .from(schema.users)
@@ -19,7 +19,7 @@ export async function getUserPermissions(userId: string): Promise<string[]> {
     .limit(1);
 
   return rows[0]?.permissions ?? [];
-}
+});
 
 export function isPermissionAllowed(
   permissions: string[],

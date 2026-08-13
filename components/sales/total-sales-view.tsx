@@ -1,12 +1,24 @@
 "use client";
 
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import dynamic from "next/dynamic";
 import { ShoppingBag } from "lucide-react";
 import type { TotalSalesStats } from "@/lib/sales/totals";
 import { formatCurrency, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { useLocale } from "@/lib/i18n/locale-provider";
 import { DataTable } from "@/components/ui/data-table";
+
+const DonutChart = dynamic(
+  () => import("@/components/charts/donut-chart").then((m) => m.DonutChart),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full w-full items-center justify-center">
+        <span className="size-10 animate-spin rounded-full border-[3px] border-muted border-t-primary" />
+      </div>
+    ),
+  },
+);
 
 interface TotalSalesViewProps {
   initialStats: TotalSalesStats;
@@ -41,34 +53,11 @@ export function TotalSalesView({ initialStats }: TotalSalesViewProps) {
         <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
           <h3 className="mb-4 text-sm font-extrabold text-foreground">{s.countStats}</h3>
           <div className="relative h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={donutData}
-                  dataKey="value"
-                  nameKey="label"
-                  innerRadius={56}
-                  outerRadius={86}
-                  paddingAngle={3}
-                  stroke="var(--card)"
-                  strokeWidth={2}
-                >
-                  {donutData.map((entry, index) => (
-                    <Cell key={entry.label} fill={DONUT_COLORS[index]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(value) => formatCurrency(Number(value))}
-                  contentStyle={{
-                    borderRadius: 12,
-                    borderColor: "var(--border)",
-                    fontSize: 13,
-                    backgroundColor: "var(--card)",
-                    color: "var(--foreground)",
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+            <DonutChart
+              data={donutData.map((entry) => ({ name: entry.label, value: entry.value }))}
+              colors={DONUT_COLORS}
+              tooltipFormatter={(value) => formatCurrency(value)}
+            />
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
               <span className="text-xs text-muted-foreground">{s.total}</span>
               <span className="text-lg font-extrabold tabular-nums text-foreground">
