@@ -1,7 +1,6 @@
 "use client";
 
 import { LoaderCircle } from "lucide-react";
-import { Logo } from "@/components/brand/logo";
 import { useLocale } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/cn";
 
@@ -61,10 +60,6 @@ export function PageLoading({ showShell = false }: PageLoadingProps) {
   return (
     <div className="flex min-h-dvh items-center justify-center bg-background">
       <div className="flex flex-col items-center gap-4">
-        <div className="relative">
-          <div className="absolute inset-0 rounded-full bg-primary/20 blur-2xl" aria-hidden="true" />
-          <Logo className="relative" />
-        </div>
         <LoaderCircle className={cn("size-7 animate-spin text-primary")} aria-hidden="true" />
         <p className="text-sm font-semibold text-muted-foreground">{t.common.loading}</p>
       </div>

@@ -1,15 +1,8 @@
 import type { Metadata } from "next";
 import Script from "next/script";
-import { Cairo } from "next/font/google";
 import { LocaleProvider } from "@/lib/i18n/locale-provider";
 import { STORAGE_KEY } from "@/lib/i18n/dictionaries";
 import "./globals.css";
-
-const cairo = Cairo({
-  variable: "--font-cairo",
-  subsets: ["arabic", "latin"],
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: {
@@ -21,8 +14,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ar" dir="rtl" className={`${cairo.variable} h-full antialiased`} suppressHydrationWarning>
-      <body className="min-h-full flex flex-col">
+    <html lang="ar" dir="rtl" className="h-full antialiased" suppressHydrationWarning>
+      <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <Script
           id="locale-init"
           strategy="beforeInteractive"
