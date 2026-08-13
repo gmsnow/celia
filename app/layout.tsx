@@ -3,6 +3,7 @@ import Script from "next/script";
 import { LocaleProvider } from "@/lib/i18n/locale-provider";
 import { STORAGE_KEY } from "@/lib/i18n/dictionaries";
 import "./globals.css";
+import "./fixes.css";
 
 export const metadata: Metadata = {
   title: {
