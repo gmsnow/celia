@@ -3,34 +3,28 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
-  Banknote,
   Bell,
-  Box,
   ChevronDown,
-  Coins,
-  Copy,
-  CreditCard,
-  HardDrive,
   LogOut,
   Maximize,
   Menu,
   Minimize,
-  Percent,
   Search,
-  ShoppingCart,
-  Truck,
   User,
-  UserCog,
-  Wallet,
-  type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { roleLabel } from "@/lib/roles";
 import { authClient } from "@/lib/auth-client";
 import { useLocale } from "@/lib/i18n/locale-provider";
 import { filterSections, flattenPages, getSidebarSections } from "@/lib/nav";
+import {
+  formatRelativeTime,
+  NOTIFICATION_ICONS,
+  notificationText,
+  type NotificationItem,
+} from "@/lib/notifications-ui";
 import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 
@@ -44,61 +38,9 @@ type OpenMenu = "notifications" | "user" | null;
 
 const SUPPORT_URL = "https://hitham-portofolio.netlify.app/#contact";
 
-interface NotificationItem {
-  id: string;
-  type: string;
-  action: string;
-  messageKey: string;
-  messageParams?: Record<string, string | number> | null;
-  actorName?: string | null;
-  isRead: boolean;
-  createdAt: string;
-}
-
-const NOTIFICATION_ICONS: Record<string, LucideIcon> = {
-  expense: Coins,
-  advance: Wallet,
-  product: Box,
-  sale: ShoppingCart,
-  employee: User,
-  user: UserCog,
-  balance: CreditCard,
-  hobani: Banknote,
-  copyPrice: Percent,
-  transfer: Copy,
-  agent: Truck,
-  nasShare: HardDrive,
-  device: HardDrive,
-};
-
-function interpolate(
-  template: string,
-  params?: Record<string, string | number> | null,
-): string {
-  if (!params) return template;
-  return Object.entries(params).reduce(
-    (acc, [key, value]) => acc.replace(`{${key}}`, String(value)),
-    template,
-  );
-}
-
-function formatRelativeTime(iso: string, locale: string): string {
-  const diffMs = new Date(iso).getTime() - Date.now();
-  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
-  const minutes = Math.round(Math.abs(diffMs) / 60000);
-  if (minutes < 1) return rtf.format(0, "minute");
-  if (minutes < 60) return rtf.format(-minutes, "minute");
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return rtf.format(-hours, "hour");
-  const days = Math.round(hours / 24);
-  if (days < 30) return rtf.format(-days, "day");
-  const months = Math.round(days / 30);
-  if (months < 12) return rtf.format(-months, "month");
-  return rtf.format(-Math.round(months / 12), "year");
-}
-
 export function Header({ user, onToggleSidebar, onToggleCollapsed }: HeaderProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const { t, locale } = useLocale();
   const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -145,6 +87,14 @@ export function Header({ user, onToggleSidebar, onToggleCollapsed }: HeaderProps
     return () => {
       stopped = true;
     };
+  }, [loadNotifications, pathname]);
+
+  useEffect(() => {
+    function onNotificationsChanged() {
+      void loadNotifications();
+    }
+    window.addEventListener("celia-notifications-changed", onNotificationsChanged);
+    return () => window.removeEventListener("celia-notifications-changed", onNotificationsChanged);
   }, [loadNotifications]);
 
   useEffect(() => {
@@ -429,12 +379,7 @@ export function Header({ user, onToggleSidebar, onToggleCollapsed }: HeaderProps
               </p>
             ) : (
               notifications.map((item) => {
-                const Icon = NOTIFICATION_ICONS[item.type] ?? Bell;
-                const key = item.messageKey.startsWith("notifications.")
-                  ? item.messageKey.slice("notifications.".length)
-                  : item.messageKey;
-                const template =
-                  (t.notifications as Record<string, string>)[key] ?? item.messageKey;
+                const Icon = NOTIFICATION_ICONS[item.type] ?? NOTIFICATION_ICONS.default;
                 return (
                   <div
                     key={item.id}
@@ -449,7 +394,7 @@ export function Header({ user, onToggleSidebar, onToggleCollapsed }: HeaderProps
                         )}
                       >
                         <span className="block truncate">
-                          {interpolate(template, item.messageParams)}
+                          {notificationText(t, item)}
                         </span>
                         {item.actorName && (
                           <span className="block truncate text-xs text-muted-foreground">
@@ -466,13 +411,13 @@ export function Header({ user, onToggleSidebar, onToggleCollapsed }: HeaderProps
               })
             )}
           </div>
-          <a
-            href="#"
-            onClick={(e) => e.preventDefault()}
+          <Link
+            href="/notifications"
+            onClick={() => setOpenMenu(null)}
             className="block border-t border-border px-4 py-2.5 text-center text-sm font-bold text-primary transition-colors hover:bg-muted"
           >
             {t.header.viewAllNotifications}
-          </a>
+          </Link>
         </DropdownPanel>
       )}
 
@@ -581,7 +526,7 @@ function DropdownTrigger({
       {!open && tooltip && (
         <span
           role="tooltip"
-          className="pointer-events-none absolute -top-9 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-md border border-border bg-popover px-2 py-1 text-xs font-semibold text-popover-foreground opacity-0 shadow-md transition-opacity group-hover:opacity-100"
+          className="pointer-events-none absolute top-full mt-2 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-md border border-border bg-popover px-2 py-1 text-xs font-semibold text-popover-foreground opacity-0 shadow-md transition-opacity group-hover:opacity-100"
         >
           {tooltip}
         </span>
