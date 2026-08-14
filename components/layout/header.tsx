@@ -353,6 +353,11 @@ export function Header({ user, onToggleSidebar, onToggleCollapsed }: HeaderProps
             label={t.header.notifications}
             badge={unreadCount > 0 ? String(unreadCount) : undefined}
             badgeClass="bg-amber-500 text-white"
+            tooltip={
+              unreadCount > 0
+                ? t.header.notificationsUnreadTooltip.replace("{count}", String(unreadCount))
+                : t.header.notifications
+            }
           >
             <Bell className="size-5" aria-hidden="true" />
           </DropdownTrigger>
@@ -537,6 +542,7 @@ interface DropdownTriggerProps {
   label: string;
   badge?: string;
   badgeClass?: string;
+  tooltip?: string;
   children: React.ReactNode;
 }
 
@@ -546,6 +552,7 @@ function DropdownTrigger({
   label,
   badge,
   badgeClass,
+  tooltip,
   children,
 }: DropdownTriggerProps) {
   return (
@@ -553,7 +560,7 @@ function DropdownTrigger({
       type="button"
       onClick={onClick}
       className={cn(
-        "relative flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+        "group relative flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
         open && "bg-muted text-foreground",
       )}
       aria-label={label}
@@ -569,6 +576,14 @@ function DropdownTrigger({
           )}
         >
           {badge}
+        </span>
+      )}
+      {!open && tooltip && (
+        <span
+          role="tooltip"
+          className="pointer-events-none absolute -top-9 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-md border border-border bg-popover px-2 py-1 text-xs font-semibold text-popover-foreground opacity-0 shadow-md transition-opacity group-hover:opacity-100"
+        >
+          {tooltip}
         </span>
       )}
     </button>
