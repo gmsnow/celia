@@ -432,31 +432,6 @@ export function Header({ user, onToggleSidebar, onToggleCollapsed }: HeaderProps
               {roleLabel(user.role ?? "employee", t)}
             </p>
           </div>
-          <div className="border-b border-border px-1 py-2">
-            <div className="grid grid-cols-3 text-center text-sm">
-              <a
-                href="#"
-                onClick={(e) => e.preventDefault()}
-                className="rounded-lg px-2 py-1.5 font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                {t.header.followers}
-              </a>
-              <a
-                href="#"
-                onClick={(e) => e.preventDefault()}
-                className="rounded-lg px-2 py-1.5 font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                {t.header.sales}
-              </a>
-              <a
-                href="#"
-                onClick={(e) => e.preventDefault()}
-                className="rounded-lg px-2 py-1.5 font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                {t.header.friends}
-              </a>
-            </div>
-          </div>
           <div className="flex items-center justify-between gap-2 px-3 py-3">
             <Link
               href="/profile"
