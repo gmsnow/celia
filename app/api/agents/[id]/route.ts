@@ -3,6 +3,7 @@ import { requireApiUser } from "@/lib/transfers/api-auth";
 import { getAgentById, assignAgentShare } from "@/lib/transfers/queries";
 import { logAudit } from "@/lib/transfers/audit";
 import { logger } from "@/lib/logger";
+import { createNotification } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +60,18 @@ export async function PATCH(request: Request, context: Context) {
     if (!updated) {
       return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
     }
+
+    const assignedAgent = await getAgentById(id);
+
+    await createNotification({
+      type: "agent",
+      action: "assignShare",
+      messageKey: "notifications.agentShareAssigned",
+      messageParams: { name: assignedAgent?.name ?? id },
+      entityId: id,
+      actorId: user.id,
+      actorName: user.name,
+    });
 
     await logAudit({
       action: "AGENT_SHARE_ASSIGNED",

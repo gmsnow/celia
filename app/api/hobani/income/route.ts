@@ -10,6 +10,7 @@ import {
 import { invalidateCached } from "@/lib/cache";
 import { getDictionary, isLocale } from "@/lib/i18n/dictionaries";
 import { logger } from "@/lib/logger";
+import { createNotification } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -78,6 +79,17 @@ export async function POST(request: Request) {
       .returning({ id: schema.hobaniIncome.id });
 
     invalidateCached(HOBANI_TOTALS_CACHE_KEY);
+
+    await createNotification({
+      type: "hobani",
+      action: "add",
+      messageKey: "notifications.hobaniAdded",
+      messageParams: { amount: parsed.data.income.toString() },
+      entityId: row.id,
+      actorId: session.user.id,
+      actorName: session.user.name,
+    });
+
     return NextResponse.json({ success: true, message: t.hobani.successMessage, id: row.id });
   } catch (error) {
     logger.error("hobani income insert failed", { error });
@@ -109,6 +121,16 @@ export async function DELETE(request: Request) {
   try {
     const deleted = await deleteHobaniIncomeByDayPeriod(day, period);
     invalidateCached(HOBANI_TOTALS_CACHE_KEY);
+
+    await createNotification({
+      type: "hobani",
+      action: "delete",
+      messageKey: "notifications.hobaniDeleted",
+      messageParams: { day },
+      actorId: session.user.id,
+      actorName: session.user.name,
+    });
+
     return NextResponse.json({
       success: true,
       message: t.hobani.deletedMessage,

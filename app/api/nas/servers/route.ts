@@ -5,6 +5,7 @@ import { requireApiUser } from "@/lib/transfers/api-auth";
 import { db, schema } from "@/lib/db";
 import { logAudit } from "@/lib/transfers/audit";
 import { logger } from "@/lib/logger";
+import { createNotification } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -111,6 +112,16 @@ export async function POST(request: Request) {
           ),
         );
     }
+
+    await createNotification({
+      type: "nasShare",
+      action: "add",
+      messageKey: "notifications.nasServerAdded",
+      messageParams: { host },
+      actorId: user.id,
+      actorName: user.name,
+      metadata: { host, discovered, created: toCreate.length },
+    });
 
     await logAudit({
       action: "NAS_SERVER_ADDED",

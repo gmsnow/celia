@@ -5,6 +5,7 @@ import { createProductSaleSchema } from "@/lib/sales/product-sale";
 import { getAllProductSales } from "@/lib/products/queries";
 import { getDictionary, isLocale } from "@/lib/i18n/dictionaries";
 import { logger } from "@/lib/logger";
+import { createNotification } from "@/lib/notifications";
 
 export async function GET(request: Request) {
   const session = await getSession();
@@ -61,6 +62,16 @@ export async function POST(request: Request) {
         createdBy: session.user.id,
       })
       .returning({ id: schema.productSales.id });
+
+    await createNotification({
+      type: "sale",
+      action: "add",
+      messageKey: "notifications.saleAdded",
+      messageParams: { total: parsed.data.total.toString() },
+      entityId: row.id,
+      actorId: session.user.id,
+      actorName: session.user.name,
+    });
 
     return NextResponse.json({ success: true, message: t.addProduct.successMessage, id: row.id });
   } catch (error) {

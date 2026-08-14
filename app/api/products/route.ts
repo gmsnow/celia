@@ -5,6 +5,7 @@ import { createProductSchema } from "@/lib/products/product";
 import { getProducts } from "@/lib/products/queries";
 import { getDictionary, isLocale } from "@/lib/i18n/dictionaries";
 import { logger } from "@/lib/logger";
+import { createNotification } from "@/lib/notifications";
 
 export async function GET() {
   const session = await getSession();
@@ -51,6 +52,16 @@ export async function POST(request: Request) {
         createdBy: session.user.id,
       })
       .returning({ id: schema.products.id });
+
+    await createNotification({
+      type: "product",
+      action: "add",
+      messageKey: "notifications.productAdded",
+      messageParams: { name: parsed.data.name, price: parsed.data.price.toString() },
+      entityId: row.id,
+      actorId: session.user.id,
+      actorName: session.user.name,
+    });
 
     return NextResponse.json({ success: true, message: t.addProductPrice.successMessage, id: row.id });
   } catch (error) {

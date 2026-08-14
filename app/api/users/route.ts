@@ -7,6 +7,7 @@ import { createUserSchema } from "@/lib/users/user";
 import { getUsers } from "@/lib/users/queries";
 import { getDictionary, isLocale } from "@/lib/i18n/dictionaries";
 import { logger } from "@/lib/logger";
+import { createNotification } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -83,6 +84,16 @@ export async function POST(request: Request) {
       password: passwordHash,
       createdAt: now,
       updatedAt: now,
+    });
+
+    await createNotification({
+      type: "user",
+      action: "add",
+      messageKey: "notifications.userAdded",
+      messageParams: { name: parsed.data.name },
+      entityId: userId,
+      actorId: session.user.id,
+      actorName: session.user.name,
     });
 
     return NextResponse.json({

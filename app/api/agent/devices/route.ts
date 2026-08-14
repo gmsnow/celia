@@ -4,6 +4,7 @@ import { db, schema } from "@/lib/db";
 import { requireAgent } from "@/lib/transfers/agent-auth";
 import { DEVICE_TYPES } from "@/lib/transfers/constants";
 import { logger } from "@/lib/logger";
+import { createNotification } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,12 @@ export async function POST(request: Request) {
   const now = new Date();
 
   try {
+    const existingRows = await db
+      .select({ deviceId: schema.transferDevices.deviceId })
+      .from(schema.transferDevices)
+      .where(eq(schema.transferDevices.agentId, agent.agentId));
+    const existingDeviceIds = new Set(existingRows.map((row) => row.deviceId));
+
     for (const device of devices) {
       if (!device.deviceId) continue;
       const deviceType =
@@ -59,6 +66,17 @@ export async function POST(request: Request) {
           set: values,
         })
         .returning({ id: schema.transferDevices.id, deviceId: schema.transferDevices.deviceId });
+    }
+
+    const newDevices = devices.filter((device) => !existingDeviceIds.has(device.deviceId));
+    for (const device of newDevices) {
+      await createNotification({
+        type: "device",
+        action: "add",
+        messageKey: "notifications.deviceAdded",
+        messageParams: { name: device.deviceName ?? device.deviceId },
+        actorName: agent.name,
+      });
     }
 
     const reported = new Set(devices.map((device) => device.deviceId));

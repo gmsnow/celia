@@ -353,6 +353,26 @@ export const rolePermissions = pgTable("role_permissions", {
   updatedBy: text("updated_by").references(() => users.id, { onDelete: "set null" }),
 });
 
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    type: text("type").notNull(),
+    action: text("action").notNull(),
+    messageKey: text("message_key").notNull(),
+    messageParams: jsonb("message_params").$type<Record<string, string | number>>(),
+    entityId: text("entity_id"),
+    actorId: text("actor_id").references(() => users.id, { onDelete: "set null" }),
+    actorName: text("actor_name"),
+    isRead: boolean("is_read").notNull().default(false),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("notifications_created_at_idx").on(table.createdAt),
+    index("notifications_is_read_idx").on(table.isRead),
+  ],
+);
+
 export const usersRelations = relations(users, ({ many }) => ({
   sessions: many(sessions),
   accounts: many(accounts),

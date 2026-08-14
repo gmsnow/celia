@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { hashAgentKey } from "@/lib/transfers/agent-auth";
 import { logger } from "@/lib/logger";
+import { createNotification } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +47,14 @@ export async function POST(request: Request) {
       apiKeyHash: hashAgentKey(apiKey),
       status: "ONLINE",
     });
+
+    await createNotification({
+      type: "agent",
+      action: "register",
+      messageKey: "notifications.agentRegistered",
+      messageParams: { name },
+    });
+
     logger.info("agent registered", { agentId, name });
     return NextResponse.json({ agentId, apiKey });
   } catch (error) {

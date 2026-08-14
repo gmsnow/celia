@@ -3,6 +3,7 @@ import { getSession, requireApiPermission } from "@/lib/session";
 import { getCopyPricePerGB, setCopyPricePerGB } from "@/lib/pricing/copy-price-store";
 import { getDictionary, isLocale } from "@/lib/i18n/dictionaries";
 import { logger } from "@/lib/logger";
+import { createNotification } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,16 @@ export async function PUT(request: Request) {
 
   try {
     await setCopyPricePerGB(pricePerGB);
+
+    await createNotification({
+      type: "copyPrice",
+      action: "update",
+      messageKey: "notifications.copyPriceUpdated",
+      messageParams: { price: String(pricePerGB) },
+      actorId: session.user.id,
+      actorName: session.user.name,
+    });
+
     return NextResponse.json({ success: true, message: t.copyPriceSettings.saved });
   } catch (error) {
     logger.error("copy price save failed", { error });

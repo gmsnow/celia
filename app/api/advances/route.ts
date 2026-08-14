@@ -5,6 +5,7 @@ import { createAdvanceSchema } from "@/lib/advances/advance";
 import { getAdvances } from "@/lib/advances/queries";
 import { getDictionary, isLocale } from "@/lib/i18n/dictionaries";
 import { logger } from "@/lib/logger";
+import { createNotification } from "@/lib/notifications";
 
 export async function GET() {
   const session = await getSession();
@@ -53,6 +54,16 @@ export async function POST(request: Request) {
         createdBy: session.user.id,
       })
       .returning({ id: schema.advances.id });
+
+    await createNotification({
+      type: "advance",
+      action: "add",
+      messageKey: "notifications.advanceAdded",
+      messageParams: { amount: parsed.data.amount.toString() },
+      entityId: row.id,
+      actorId: session.user.id,
+      actorName: session.user.name,
+    });
 
     return NextResponse.json({ success: true, message: t.addAdvance.successMessage, id: row.id });
   } catch (error) {

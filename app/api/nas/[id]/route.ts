@@ -3,6 +3,7 @@ import { requireApiUser } from "@/lib/transfers/api-auth";
 import { updateNasShare, deleteNasShare } from "@/lib/transfers/nas";
 import { logAudit } from "@/lib/transfers/audit";
 import { logger } from "@/lib/logger";
+import { createNotification } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,16 @@ export async function PATCH(request: Request, context: Context) {
       return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
     }
 
+    await createNotification({
+      type: "nasShare",
+      action: "update",
+      messageKey: "notifications.nasShareUpdated",
+      messageParams: { name: updated.name },
+      entityId: id,
+      actorId: user.id,
+      actorName: user.name,
+    });
+
     await logAudit({
       action: "NAS_SHARE_UPDATED",
       entityType: "NAS_SHARE",
@@ -68,6 +79,15 @@ export async function DELETE(request: Request, context: Context) {
     if (!deleted) {
       return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
     }
+
+    await createNotification({
+      type: "nasShare",
+      action: "delete",
+      messageKey: "notifications.nasShareDeleted",
+      entityId: id,
+      actorId: user.id,
+      actorName: user.name,
+    });
 
     await logAudit({
       action: "NAS_SHARE_DELETED",

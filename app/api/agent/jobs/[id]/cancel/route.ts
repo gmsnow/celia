@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { requireAgent } from "@/lib/transfers/agent-auth";
 import { logger } from "@/lib/logger";
+import { createNotification } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ export async function POST(request: Request, context: Context) {
 
   try {
     const [job] = await db
-      .select({ id: schema.transferJobs.id, startTime: schema.transferJobs.startTime })
+      .select({ id: schema.transferJobs.id, jobNo: schema.transferJobs.jobNo, startTime: schema.transferJobs.startTime })
       .from(schema.transferJobs)
       .where(and(eq(schema.transferJobs.id, id), eq(schema.transferJobs.agentId, agent.agentId)));
 
@@ -42,6 +43,15 @@ export async function POST(request: Request, context: Context) {
         updatedAt: now,
       })
       .where(eq(schema.transferJobs.id, id));
+
+    await createNotification({
+      type: "transfer",
+      action: "cancel",
+      messageKey: "notifications.transferCancelled",
+      messageParams: { jobNo: job.jobNo },
+      entityId: job.id,
+      actorName: agent.name,
+    });
 
     logger.info("job cancelled by agent", { agentId: agent.agentId, jobId: id });
     return NextResponse.json({ ok: true });

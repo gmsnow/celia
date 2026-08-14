@@ -5,6 +5,7 @@ import { requireAgent } from "@/lib/transfers/agent-auth";
 import { MANUAL_COPY_MARKER } from "@/lib/transfers/constants";
 import { logAudit } from "@/lib/transfers/audit";
 import { logger } from "@/lib/logger";
+import { createNotification } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -144,6 +145,15 @@ export async function POST(request: Request) {
         updatedAt: now,
       })
       .returning({ id: schema.transferJobs.id, jobNo: schema.transferJobs.jobNo });
+
+    await createNotification({
+      type: "transfer",
+      action: "manual",
+      messageKey: "notifications.manualCopyAdded",
+      messageParams: { jobNo: job.jobNo },
+      entityId: job.id,
+      actorName: agent.name,
+    });
 
     await logAudit({
       action: "TRANSFER_MANUAL_DETECTED",

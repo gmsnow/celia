@@ -5,6 +5,7 @@ import { db, schema } from "@/lib/db";
 import { updateEmployeeSchema } from "@/lib/employees/employee";
 import { getDictionary, isLocale } from "@/lib/i18n/dictionaries";
 import { logger } from "@/lib/logger";
+import { createNotification } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -54,6 +55,16 @@ export async function PUT(request: Request, context: Context) {
       return NextResponse.json({ error: t.employeesManagement.notFound }, { status: 404 });
     }
 
+    await createNotification({
+      type: "employee",
+      action: "update",
+      messageKey: "notifications.employeeUpdated",
+      messageParams: { name: parsed.data.name ?? "" },
+      entityId: row.id,
+      actorId: session.user.id,
+      actorName: session.user.name,
+    });
+
     return NextResponse.json({
       success: true,
       message: t.employeesManagement.savedMessage,
@@ -89,6 +100,15 @@ export async function DELETE(_request: Request, context: Context) {
     if (!row) {
       return NextResponse.json({ error: t.employeesManagement.notFound }, { status: 404 });
     }
+
+    await createNotification({
+      type: "employee",
+      action: "delete",
+      messageKey: "notifications.employeeDeleted",
+      entityId: row.id,
+      actorId: session.user.id,
+      actorName: session.user.name,
+    });
 
     return NextResponse.json({ success: true, message: t.employeesManagement.deletedMessage });
   } catch (error) {

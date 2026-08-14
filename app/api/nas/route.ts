@@ -3,6 +3,7 @@ import { requireApiUser } from "@/lib/transfers/api-auth";
 import { listNasShares, createNasShare } from "@/lib/transfers/nas";
 import { logAudit } from "@/lib/transfers/audit";
 import { logger } from "@/lib/logger";
+import { createNotification } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,16 @@ export async function POST(request: Request) {
       password: typeof body.password === "string" && body.password ? body.password : null,
       basePath: typeof body.basePath === "string" && body.basePath ? body.basePath : null,
       isActive: body.isActive !== false,
+    });
+
+    await createNotification({
+      type: "nasShare",
+      action: "add",
+      messageKey: "notifications.nasShareAdded",
+      messageParams: { name: created.name },
+      entityId: created.id,
+      actorId: user.id,
+      actorName: user.name,
     });
 
     await logAudit({

@@ -5,6 +5,7 @@ import { db, schema } from "@/lib/db";
 import { createProductSchema } from "@/lib/products/product";
 import { getDictionary, isLocale } from "@/lib/i18n/dictionaries";
 import { logger } from "@/lib/logger";
+import { createNotification } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,16 @@ export async function PUT(request: Request, context: Context) {
       return NextResponse.json({ error: t.addProductPrice.notFound }, { status: 404 });
     }
 
+    await createNotification({
+      type: "product",
+      action: "update",
+      messageKey: "notifications.productUpdated",
+      messageParams: { name: parsed.data.name },
+      entityId: row.id,
+      actorId: session.user.id,
+      actorName: session.user.name,
+    });
+
     return NextResponse.json({ success: true, message: t.addProductPrice.updatedMessage, id: row.id });
   } catch (error) {
     logger.error("product update failed", { error });
@@ -81,6 +92,15 @@ export async function DELETE(request: Request, context: Context) {
     if (!row) {
       return NextResponse.json({ error: t.addProductPrice.notFound }, { status: 404 });
     }
+
+    await createNotification({
+      type: "product",
+      action: "delete",
+      messageKey: "notifications.productDeleted",
+      entityId: row.id,
+      actorId: session.user.id,
+      actorName: session.user.name,
+    });
 
     return NextResponse.json({ success: true, message: t.addProductPrice.deletedMessage });
   } catch (error) {

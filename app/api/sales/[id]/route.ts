@@ -5,6 +5,7 @@ import { db, schema } from "@/lib/db";
 import { createProductSaleSchema } from "@/lib/sales/product-sale";
 import { getDictionary, isLocale } from "@/lib/i18n/dictionaries";
 import { logger } from "@/lib/logger";
+import { createNotification } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,15 @@ export async function PUT(request: Request, context: Context) {
       return NextResponse.json({ error: t.addProduct.notFound }, { status: 404 });
     }
 
+    await createNotification({
+      type: "sale",
+      action: "update",
+      messageKey: "notifications.saleUpdated",
+      entityId: row.id,
+      actorId: session.user.id,
+      actorName: session.user.name,
+    });
+
     return NextResponse.json({
       success: true,
       message: t.addProduct.updatedMessage,
@@ -85,6 +95,15 @@ export async function DELETE(_request: Request, context: Context) {
     if (!row) {
       return NextResponse.json({ error: t.addProduct.notFound }, { status: 404 });
     }
+
+    await createNotification({
+      type: "sale",
+      action: "delete",
+      messageKey: "notifications.saleDeleted",
+      entityId: row.id,
+      actorId: session.user.id,
+      actorName: session.user.name,
+    });
 
     return NextResponse.json({ success: true, message: t.addProduct.deletedMessage });
   } catch (error) {

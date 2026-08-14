@@ -5,6 +5,7 @@ import { createEmployeeSchema } from "@/lib/employees/employee";
 import { getEmployees } from "@/lib/employees/queries";
 import { getDictionary, isLocale } from "@/lib/i18n/dictionaries";
 import { logger } from "@/lib/logger";
+import { createNotification } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +56,16 @@ export async function POST(request: Request) {
         createdBy: session.user.id,
       })
       .returning({ id: schema.employees.id });
+
+    await createNotification({
+      type: "employee",
+      action: "add",
+      messageKey: "notifications.employeeAdded",
+      messageParams: { name: parsed.data.name },
+      entityId: row.id,
+      actorId: session.user.id,
+      actorName: session.user.name,
+    });
 
     return NextResponse.json({
       success: true,

@@ -1,24 +1,30 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  Banknote,
   Bell,
+  Box,
   ChevronDown,
-  Clock,
-  FileText,
+  Coins,
+  Copy,
+  CreditCard,
+  HardDrive,
   LogOut,
-  Mail,
   Maximize,
   Menu,
-  MessageSquare,
   Minimize,
+  Percent,
   Search,
-  Star,
+  ShoppingCart,
+  Truck,
   User,
-  Users,
+  UserCog,
+  Wallet,
+  type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { roleLabel } from "@/lib/roles";
@@ -34,57 +40,126 @@ interface HeaderProps {
   onToggleCollapsed: () => void;
 }
 
-type OpenMenu = "messages" | "notifications" | "user" | null;
+type OpenMenu = "notifications" | "user" | null;
 
 const SUPPORT_URL = "https://hitham-portofolio.netlify.app/#contact";
 
-interface MessageItem {
-  sender: string;
-  starred: boolean;
-  tone: string;
-  bodyKey: "contactMe" | "gotYourMessage" | "topicHere";
-  timeKey: "fourHoursAgo";
+interface NotificationItem {
+  id: string;
+  type: string;
+  action: string;
+  messageKey: string;
+  messageParams?: Record<string, string | number> | null;
+  actorName?: string | null;
+  isRead: boolean;
+  createdAt: string;
 }
 
-const MESSAGES: MessageItem[] = [
-  {
-    sender: "Brad Diesel",
-    starred: true,
-    tone: "text-red-500",
-    bodyKey: "contactMe",
-    timeKey: "fourHoursAgo",
-  },
-  {
-    sender: "John Pierce",
-    starred: false,
-    tone: "text-muted-foreground",
-    bodyKey: "gotYourMessage",
-    timeKey: "fourHoursAgo",
-  },
-  {
-    sender: "Nora Silvester",
-    starred: true,
-    tone: "text-amber-500",
-    bodyKey: "topicHere",
-    timeKey: "fourHoursAgo",
-  },
-];
+const NOTIFICATION_ICONS: Record<string, LucideIcon> = {
+  expense: Coins,
+  advance: Wallet,
+  product: Box,
+  sale: ShoppingCart,
+  employee: User,
+  user: UserCog,
+  balance: CreditCard,
+  hobani: Banknote,
+  copyPrice: Percent,
+  transfer: Copy,
+  agent: Truck,
+  nasShare: HardDrive,
+  device: HardDrive,
+};
 
-const NOTIFICATIONS = [
-  { icon: Mail, textKey: "fourNewMessages", timeKey: "threeMinutes" },
-  { icon: Users, textKey: "friendRequests", timeKey: "twelveHours" },
-  { icon: FileText, textKey: "newReports", timeKey: "twoDays" },
-] as const;
+function interpolate(
+  template: string,
+  params?: Record<string, string | number> | null,
+): string {
+  if (!params) return template;
+  return Object.entries(params).reduce(
+    (acc, [key, value]) => acc.replace(`{${key}}`, String(value)),
+    template,
+  );
+}
+
+function formatRelativeTime(iso: string, locale: string): string {
+  const diffMs = new Date(iso).getTime() - Date.now();
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  const minutes = Math.round(Math.abs(diffMs) / 60000);
+  if (minutes < 1) return rtf.format(0, "minute");
+  if (minutes < 60) return rtf.format(-minutes, "minute");
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return rtf.format(-hours, "hour");
+  const days = Math.round(hours / 24);
+  if (days < 30) return rtf.format(-days, "day");
+  const months = Math.round(days / 30);
+  if (months < 12) return rtf.format(-months, "month");
+  return rtf.format(-Math.round(months / 12), "year");
+}
 
 export function Header({ user, onToggleSidebar, onToggleCollapsed }: HeaderProps) {
   const router = useRouter();
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const searchRef = useRef<HTMLInputElement>(null);
   const searchRootRef = useRef<HTMLDivElement>(null);
+
+  const loadNotifications = useCallback(async () => {
+    try {
+      const response = await fetch("/api/notifications", { cache: "no-store" });
+      if (!response.ok) return;
+      const data = await response.json();
+      setNotifications(Array.isArray(data.items) ? data.items : []);
+      setUnreadCount(typeof data.unreadCount === "number" ? data.unreadCount : 0);
+    } catch {
+      // ignore fetch errors
+    }
+  }, []);
+
+  const markNotificationsRead = useCallback(async () => {
+    try {
+      await fetch("/api/notifications/read", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      setUnreadCount(0);
+      setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
+    } catch {
+      // ignore fetch errors
+    }
+  }, []);
+
+  useEffect(() => {
+    let stopped = false;
+    const run = async () => {
+      if (stopped) return;
+      await loadNotifications();
+    };
+    void run();
+    return () => {
+      stopped = true;
+    };
+  }, [loadNotifications]);
+
+  useEffect(() => {
+    if (openMenu !== "notifications") return;
+    let stopped = false;
+    const run = async () => {
+      if (stopped) return;
+      await loadNotifications();
+      await markNotificationsRead();
+    };
+    void run();
+    return () => {
+      stopped = true;
+    };
+  }, [openMenu, loadNotifications, markNotificationsRead]);
 
   const canAccessHome =
     user.role === "admin" ||
@@ -270,26 +345,13 @@ export function Header({ user, onToggleSidebar, onToggleCollapsed }: HeaderProps
           </div>
 
           <DropdownTrigger
-            open={openMenu === "messages"}
-            onClick={() => {
-              setSearchOpen(false);
-              setOpenMenu(openMenu === "messages" ? null : "messages");
-            }}
-            label={t.header.messages}
-            badge="3"
-            badgeClass="bg-red-500 text-white"
-          >
-            <MessageSquare className="size-5" aria-hidden="true" />
-          </DropdownTrigger>
-
-          <DropdownTrigger
             open={openMenu === "notifications"}
             onClick={() => {
               setSearchOpen(false);
               setOpenMenu(openMenu === "notifications" ? null : "notifications");
             }}
             label={t.header.notifications}
-            badge="15"
+            badge={unreadCount > 0 ? String(unreadCount) : undefined}
             badgeClass="bg-amber-500 text-white"
           >
             <Bell className="size-5" aria-hidden="true" />
@@ -350,75 +412,54 @@ export function Header({ user, onToggleSidebar, onToggleCollapsed }: HeaderProps
           )
         : null}
 
-      {openMenu === "messages" && (
-        <DropdownPanel className="z-50" aria-label={t.header.messages}>
-          <div className="border-b border-border px-4 py-2.5 text-sm font-bold text-foreground">
-            {t.header.newMessages}
-          </div>
-          <div className="max-h-80 divide-y divide-border overflow-y-auto">
-            {MESSAGES.map((message) => (
-              <a
-                key={message.sender}
-                href="#"
-                onClick={(e) => e.preventDefault()}
-                className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-muted"
-              >
-                <span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-extrabold text-primary">
-                  {message.sender.charAt(0)}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center justify-between gap-2">
-                    <span className="truncate text-sm font-bold text-foreground">
-                      {message.sender}
-                    </span>
-                    <Star
-                      className={cn("size-3.5 shrink-0", message.tone)}
-                      aria-hidden="true"
-                    />
-                  </span>
-                  <span className="block truncate text-xs text-muted-foreground">
-                    {t.messages[message.bodyKey]}
-                  </span>
-                  <span className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-                    <Clock className="size-3" aria-hidden="true" />
-                    {t.messages[message.timeKey]}
-                  </span>
-                </span>
-              </a>
-            ))}
-          </div>
-          <a
-            href="#"
-            onClick={(e) => e.preventDefault()}
-            className="block border-t border-border px-4 py-2.5 text-center text-sm font-bold text-primary transition-colors hover:bg-muted"
-          >
-            {t.header.viewAllMessages}
-          </a>
-        </DropdownPanel>
-      )}
-
       {openMenu === "notifications" && (
         <DropdownPanel className="z-50" aria-label={t.header.notifications}>
           <div className="border-b border-border px-4 py-2.5 text-sm font-bold text-foreground">
-            {t.header.notificationsCount}
+            {t.header.notificationsCount.replace("{count}", String(notifications.length))}
           </div>
           <div className="max-h-80 divide-y divide-border overflow-y-auto">
-            {NOTIFICATIONS.map((item) => (
-              <a
-                key={item.textKey}
-                href="#"
-                onClick={(e) => e.preventDefault()}
-                className="flex items-center justify-between gap-3 px-4 py-3 text-sm transition-colors hover:bg-muted"
-              >
-                <span className="flex min-w-0 items-center gap-3">
-                  <item.icon className="size-4 shrink-0 text-primary" aria-hidden="true" />
-                  <span className="truncate text-foreground">{t.messages[item.textKey]}</span>
-                </span>
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  {t.messages[item.timeKey]}
-                </span>
-              </a>
-            ))}
+            {notifications.length === 0 ? (
+              <p className="px-4 py-6 text-center text-sm text-muted-foreground">
+                {t.header.notificationsEmpty}
+              </p>
+            ) : (
+              notifications.map((item) => {
+                const Icon = NOTIFICATION_ICONS[item.type] ?? Bell;
+                const key = item.messageKey.startsWith("notifications.")
+                  ? item.messageKey.slice("notifications.".length)
+                  : item.messageKey;
+                const template =
+                  (t.notifications as Record<string, string>)[key] ?? item.messageKey;
+                return (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between gap-3 px-4 py-3 text-sm transition-colors hover:bg-muted"
+                  >
+                    <span className="flex min-w-0 items-center gap-3">
+                      <Icon className="size-4 shrink-0 text-primary" aria-hidden="true" />
+                      <span
+                        className={cn(
+                          "min-w-0",
+                          item.isRead ? "text-muted-foreground" : "font-semibold text-foreground",
+                        )}
+                      >
+                        <span className="block truncate">
+                          {interpolate(template, item.messageParams)}
+                        </span>
+                        {item.actorName && (
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {item.actorName}
+                          </span>
+                        )}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {formatRelativeTime(item.createdAt, locale)}
+                    </span>
+                  </div>
+                );
+              })
+            )}
           </div>
           <a
             href="#"

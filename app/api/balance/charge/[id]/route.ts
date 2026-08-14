@@ -5,6 +5,7 @@ import { db, schema } from "@/lib/db";
 import { createBalanceChargeSchema } from "@/lib/balance/charge";
 import { getDictionary, isLocale } from "@/lib/i18n/dictionaries";
 import { logger } from "@/lib/logger";
+import { createNotification } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,16 @@ export async function PUT(request: Request, context: Context) {
       return NextResponse.json({ error: t.balanceTotals.notFound }, { status: 404 });
     }
 
+    await createNotification({
+      type: "balance",
+      action: "update",
+      messageKey: "notifications.balanceUpdated",
+      messageParams: { amount: parsed.data.amount.toString() },
+      entityId: row.id,
+      actorId: session.user.id,
+      actorName: session.user.name,
+    });
+
     return NextResponse.json({ success: true, message: t.balanceTotals.updatedMessage, id: row.id });
   } catch (error) {
     logger.error("balance charge update failed", { error });
@@ -81,6 +92,15 @@ export async function DELETE(request: Request, context: Context) {
     if (!row) {
       return NextResponse.json({ error: t.balanceTotals.notFound }, { status: 404 });
     }
+
+    await createNotification({
+      type: "balance",
+      action: "delete",
+      messageKey: "notifications.balanceDeleted",
+      entityId: row.id,
+      actorId: session.user.id,
+      actorName: session.user.name,
+    });
 
     return NextResponse.json({ success: true, message: t.balanceTotals.deletedMessage });
   } catch (error) {

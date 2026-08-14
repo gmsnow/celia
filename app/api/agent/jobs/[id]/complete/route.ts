@@ -4,6 +4,7 @@ import { db, schema } from "@/lib/db";
 import { requireAgent } from "@/lib/transfers/agent-auth";
 import { logAudit } from "@/lib/transfers/audit";
 import { logger } from "@/lib/logger";
+import { createNotification } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,7 @@ export async function POST(request: Request, context: Context) {
 
   try {
     const [job] = await db
-      .select({ id: schema.transferJobs.id, startTime: schema.transferJobs.startTime })
+      .select({ id: schema.transferJobs.id, jobNo: schema.transferJobs.jobNo, startTime: schema.transferJobs.startTime })
       .from(schema.transferJobs)
       .where(and(eq(schema.transferJobs.id, id), eq(schema.transferJobs.agentId, agent.agentId)));
 
@@ -50,6 +51,15 @@ export async function POST(request: Request, context: Context) {
         ...(body?.filesCount != null ? { transferredFiles: body.filesCount } : {}),
       })
       .where(eq(schema.transferJobs.id, id));
+
+    await createNotification({
+      type: "transfer",
+      action: "complete",
+      messageKey: "notifications.transferCompleted",
+      messageParams: { jobNo: job.jobNo },
+      entityId: job.id,
+      actorName: agent.name,
+    });
 
     await logAudit({
       action: "TRANSFER_COMPLETED",

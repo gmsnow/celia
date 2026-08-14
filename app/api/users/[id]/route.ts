@@ -6,6 +6,7 @@ import { db, schema } from "@/lib/db";
 import { updateUserSchema } from "@/lib/users/user";
 import { getDictionary, isLocale } from "@/lib/i18n/dictionaries";
 import { logger } from "@/lib/logger";
+import { createNotification } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -78,6 +79,16 @@ export async function PUT(request: Request, context: Context) {
         );
     }
 
+    await createNotification({
+      type: "user",
+      action: "update",
+      messageKey: "notifications.userUpdated",
+      messageParams: { name: parsed.data.name ?? "" },
+      entityId: row.id,
+      actorId: session.user.id,
+      actorName: session.user.name,
+    });
+
     return NextResponse.json({
       success: true,
       message: t.usersManagement.savedMessage,
@@ -128,6 +139,15 @@ export async function DELETE(request: Request, context: Context) {
     if (!row) {
       return NextResponse.json({ error: t.usersManagement.notFound }, { status: 404 });
     }
+
+    await createNotification({
+      type: "user",
+      action: "delete",
+      messageKey: "notifications.userDeleted",
+      entityId: row.id,
+      actorId: session.user.id,
+      actorName: session.user.name,
+    });
 
     return NextResponse.json({ success: true, message: t.usersManagement.deletedMessage });
   } catch (error) {
