@@ -458,14 +458,14 @@ export function Header({ user, onToggleSidebar, onToggleCollapsed }: HeaderProps
             </div>
           </div>
           <div className="flex items-center justify-between gap-2 px-3 py-3">
-            <a
-              href="#"
-              onClick={(e) => e.preventDefault()}
+            <Link
+              href="/profile"
+              onClick={() => setOpenMenu(null)}
               className="flex items-center gap-2 rounded-lg border border-input px-3 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
             >
               <User className="size-4" aria-hidden="true" />
               {t.header.profile}
-            </a>
+            </Link>
             <button
               type="button"
               onClick={handleSignOut}
