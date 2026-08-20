@@ -14,6 +14,13 @@ function normalizeHost(input: string): string {
 }
 
 export async function POST(request: Request) {
+  if (process.platform !== "win32") {
+    return NextResponse.json(
+      { error: "PLATFORM_NOT_SUPPORTED", message: "Server discovery requires a Windows machine on the same LAN as the NAS." },
+      { status: 501 },
+    );
+  }
+
   const user = await requireApiUser();
   if (!user) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
