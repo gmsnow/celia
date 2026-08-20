@@ -5,15 +5,26 @@ import { promisify } from "node:util";
 import { Pool } from "pg";
 import * as readline from "node:readline";
 
-config({ path: resolve(__dirname, "..", ".env") });
+const root = resolve(__dirname, "..");
+config({ path: resolve(root, ".env.local") });
+config({ path: resolve(root, ".env") });
 
 const execAsync = promisify(exec);
 
+const dbUrl = process.env.DATABASE_URL;
+if (!dbUrl) {
+  console.error("\n  No DATABASE_URL found. Set it in .env or .env.local");
+  process.exit(1);
+}
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: dbUrl,
   max: 5,
-  connectionTimeoutMillis: 5000,
+  connectionTimeoutMillis: 10000,
+  ssl: /supabase\.(co|com)/i.test(dbUrl) ? { rejectUnauthorized: false } : undefined,
 });
+
+console.log(`  Database: ${dbUrl.replace(/:[^@]+@/, ":****@")}`);
 
 function ask(question: string): Promise<string> {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
