@@ -4,6 +4,10 @@ import { exec } from "node:child_process";
 import { promisify } from "node:util";
 import { Pool } from "pg";
 import * as readline from "node:readline";
+import dns from "node:dns";
+
+// Force IPv4-first DNS resolution (Supabase hostname may only have AAAA records)
+dns.setDefaultResultOrder("ipv4first");
 
 const root = resolve(__dirname, "..");
 config({ path: resolve(root, ".env.local") });
@@ -20,8 +24,10 @@ if (!dbUrl) {
 const pool = new Pool({
   connectionString: dbUrl,
   max: 5,
-  connectionTimeoutMillis: 10000,
+  connectionTimeoutMillis: 15000,
   ssl: /supabase\.(co|com)/i.test(dbUrl) ? { rejectUnauthorized: false } : undefined,
+  // Force IPv4 — some networks block IPv6
+  ...(dbUrl.includes("supabase") ? { family: 4 } : {}),
 });
 
 console.log(`  Database: ${dbUrl.replace(/:[^@]+@/, ":****@")}`);
@@ -58,6 +64,19 @@ function parseNetView(stdout: string): string[] {
     }
   }
   return [...new Set(shares)];
+}
+
+async function authenticate(host: string, username: string, password: string): Promise<void> {
+  console.log(`\n  Authenticating to \\\\${host} as ${username} ...`);
+  try {
+    await execAsync(
+      `net use "\\\\${host}\\IPC$" "${password}" /user:${username}`,
+      { timeout: 15000, windowsHide: true },
+    );
+    console.log("  Authenticated.");
+  } catch {
+    throw new Error(`Authentication failed for \\\\${host} with user ${username}`);
+  }
 }
 
 async function discoverShares(host: string): Promise<string[]> {
@@ -128,6 +147,24 @@ async function main() {
 
   host = host.replace(/\\+/g, "").replace(/^\/+|\/+$/g, "").trim();
   console.log(`  Target: \\\\${host}`);
+
+  const username = process.argv[3]?.trim();
+  const password = process.argv[4]?.trim();
+  
+  if (username && password) {
+    await authenticate(host, username, password);
+  } else {
+    const needAuth = await ask("  Does this server require authentication? (y/N): ");
+    if (needAuth.toLowerCase() === "y") {
+      const u = await ask("  Username: ");
+      const p = await ask("  Password: ");
+      if (!u) {
+        console.error("\n  No username provided. Exiting.");
+        process.exit(1);
+      }
+      await authenticate(host, u, p);
+    }
+  }
 
   const shares = await discoverShares(host);
   if (shares.length === 0) {
