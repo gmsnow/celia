@@ -315,9 +315,9 @@ export function SettingsView() {
       </section>
 
       <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-        <h2 className="mb-4 text-sm font-extrabold text-foreground">{t.transfers.devices}</h2>
+        <h2 className="mb-4 text-sm font-extrabold text-foreground">{t.transfers.nasShares ?? t.transfers.devices}</h2>
         {shares.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t.transfers.empty}</p>
+          <p className="text-sm text-muted-foreground">{t.transfers.nasSharesEmpty ?? t.transfers.empty}</p>
         ) : (
           <ul className="space-y-2">
             {shares.map((share) => (
