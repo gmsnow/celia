@@ -18,36 +18,45 @@ export interface NasDirectoryEntry {
  * System32 is not in the Node process PATH (common on some Windows setups).
  */
 export async function listServerShares(host: string): Promise<string[]> {
+  let stdout = "";
   try {
-    const { stdout } = await execAsync(
+    const result = await execAsync(
       `net view "\\\\${host}"`,
       { timeout: 20000, maxBuffer: 4 * 1024 * 1024, windowsHide: true },
     );
-    const shares: string[] = [];
-    for (const line of (stdout || "").split(/\r?\n/)) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-      if (
-        trimmed.startsWith("Share name") ||
-        /^-+$/.test(trimmed) ||
-        trimmed.startsWith("Shared resources") ||
-        trimmed.startsWith("The command") ||
-        trimmed.startsWith("Server")
-      ) {
-        continue;
-      }
-      const parts = trimmed.split(/\s{2,}/);
-      const name = (parts[0] || "").trim();
-      const type = (parts[1] || "").trim();
-      if (name && type.toLowerCase().startsWith("disk")) {
-        shares.push(name);
-      }
+    stdout = result.stdout;
+  } catch (error: unknown) {
+    const err = error as { stdout?: string; stderr?: string; message?: string };
+    stdout = err.stdout ?? "";
+    const stderr = (err.stderr ?? "").trim();
+    if (!stdout.trim()) {
+      const detail = stderr || err.message || String(error);
+      logger.error("net view failed", { host, detail });
+      throw new Error(`NETVIEW_FAILED: ${detail}`);
     }
-    return [...new Set(shares)];
-  } catch (error) {
-    logger.error("net view failed", { host, error });
-    throw new Error("NETVIEW_FAILED");
   }
+
+  const shares: string[] = [];
+  for (const line of (stdout || "").split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    if (
+      trimmed.startsWith("Share name") ||
+      /^-+$/.test(trimmed) ||
+      trimmed.startsWith("Shared resources") ||
+      trimmed.startsWith("The command") ||
+      trimmed.startsWith("Server")
+    ) {
+      continue;
+    }
+    const parts = trimmed.split(/\s{2,}/);
+    const name = (parts[0] || "").trim();
+    const type = (parts[1] || "").trim();
+    if (name && type.toLowerCase().startsWith("disk")) {
+      shares.push(name);
+    }
+  }
+  return [...new Set(shares)];
 }
 
 /**
