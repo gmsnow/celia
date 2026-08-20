@@ -1,8 +1,8 @@
-import { execFile } from "node:child_process";
 import { NextResponse } from "next/server";
 import { eq, inArray } from "drizzle-orm";
 import { requireApiUser } from "@/lib/transfers/api-auth";
 import { db, schema } from "@/lib/db";
+import { listServerShares } from "@/lib/transfers/smb";
 import { logAudit } from "@/lib/transfers/audit";
 import { logger } from "@/lib/logger";
 import { createNotification } from "@/lib/notifications";
@@ -11,44 +11,6 @@ export const dynamic = "force-dynamic";
 
 function normalizeHost(input: string): string {
   return input.replace(/\\+/g, "").replace(/^\/+|\/+$/g, "").trim();
-}
-
-function runNetView(host: string): Promise<string[]> {
-  return new Promise((resolve, reject) => {
-    execFile(
-      "net.exe",
-      ["view", `\\\\${host}`],
-      { timeout: 20000, windowsHide: true },
-      (error, stdout, stderr) => {
-        if (error) {
-          const detail = (stderr || "").trim() || (stdout || "").trim() || String(error.message || "");
-          reject(new Error(detail));
-          return;
-        }
-        const shares: string[] = [];
-        for (const line of stdout.split(/\r?\n/)) {
-          const trimmed = line.trim();
-          if (!trimmed) continue;
-          if (
-            trimmed.startsWith("Share name") ||
-            /^-+$/.test(trimmed) ||
-            trimmed.startsWith("Shared resources") ||
-            trimmed.startsWith("The command") ||
-            trimmed.startsWith("Server")
-          ) {
-            continue;
-          }
-          const parts = trimmed.split(/\s{2,}/);
-          const name = (parts[0] || "").trim();
-          const type = (parts[1] || "").trim();
-          if (name && type.toLowerCase().startsWith("disk")) {
-            shares.push(name);
-          }
-        }
-        resolve([...new Set(shares)]);
-      },
-    );
-  });
 }
 
 export async function POST(request: Request) {
@@ -67,7 +29,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const discovered = await runNetView(host);
+    const discovered = await listServerShares(host);
     if (discovered.length === 0) {
       return NextResponse.json(
         { error: "NO_SHARES_FOUND", host },

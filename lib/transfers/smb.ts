@@ -1,7 +1,8 @@
-import { execFile } from "node:child_process";
+import { exec, execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { logger } from "@/lib/logger";
 
+const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
 
 export interface NasDirectoryEntry {
@@ -13,13 +14,13 @@ export interface NasDirectoryEntry {
 
 /**
  * Enumerates the SMB disk shares a host exposes via `net view \\host`.
- * Only usable on the Windows machine that hosts this app (same LAN as the NAS).
+ * Uses `exec` with shell:true to ensure `net.exe` is found even when
+ * System32 is not in the Node process PATH (common on some Windows setups).
  */
 export async function listServerShares(host: string): Promise<string[]> {
   try {
-    const { stdout } = await execFileAsync(
-      "net.exe",
-      ["view", `\\\\${host}`],
+    const { stdout } = await execAsync(
+      `net view "\\\\${host}"`,
       { timeout: 20000, maxBuffer: 4 * 1024 * 1024, windowsHide: true },
     );
     const shares: string[] = [];
