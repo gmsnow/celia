@@ -15,20 +15,12 @@ if "%HOST%"=="" (
     exit /b 1
 )
 
-set /p "USER=  Username (leave blank for no auth): "
+cd /d "%~dp0"
 
-if "%USER%"=="" (
-    cd /d "%~dp0"
-    echo  Running discovery for %HOST% (no auth) ...
-    echo.
-    call npx tsx scripts/add-server.ts %HOST%
-) else (
-    set /p "PASS=  Password: "
-    cd /d "%~dp0"
-    echo  Running discovery for %HOST% as %USER% ...
-    echo.
-    call npx tsx scripts/add-server.ts %HOST% %USER% %PASS%
-)
+echo  Running discovery for %HOST% ...
+echo.
+
+call npx tsx scripts/add-server.ts %HOST%
 
 echo.
 echo  ==========================================
