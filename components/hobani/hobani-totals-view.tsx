@@ -44,8 +44,8 @@ export function HobaniTotalsView({ initialRows }: HobaniTotalsViewProps) {
     try {
       const res = await fetch("/api/hobani/totals");
       if (res.ok) {
-        const data = (await res.json()) as { rows: HobaniTotalRow[] };
-        setRows(data.rows);
+        const data = (await res.json()) as { rows: (Omit<HobaniTotalRow, "day"> & { day: string })[] };
+        setRows(data.rows.map((r) => ({ ...r, day: new Date(r.day) })));
       }
     } catch {
       // keep current rows on failure

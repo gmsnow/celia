@@ -51,7 +51,7 @@ export function HobaniTotalsTable({
       searchText={(row) =>
         [
           hobaniPeriodLabel(row.period, t),
-          row.day.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-GB"),
+          new Date(row.day).toLocaleDateString(locale === "ar" ? "ar-EG" : "en-GB"),
           String(row.totalCards),
         ].join(" ")
       }
@@ -102,7 +102,7 @@ export function HobaniTotalsTable({
           header: ht.colDate,
           cell: (row) => (
             <span className="text-xs tabular-nums text-muted-foreground">
-              {row.day.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-GB")}
+              {new Date(row.day).toLocaleDateString(locale === "ar" ? "ar-EG" : "en-GB")}
             </span>
           ),
         },
