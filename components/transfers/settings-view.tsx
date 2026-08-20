@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { LoaderCircle, Plus, Server, Trash2 } from "lucide-react";
+import { FolderPlus, LoaderCircle, Plus, Server, Trash2 } from "lucide-react";
 import { useLocale } from "@/lib/i18n/locale-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +33,13 @@ export function SettingsView() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [host, setHost] = useState("");
+  const [showManual, setShowManual] = useState(false);
+  const [manualName, setManualName] = useState("");
+  const [manualHost, setManualHost] = useState("");
+  const [manualShare, setManualShare] = useState("");
+  const [manualUsername, setManualUsername] = useState("");
+  const [manualPassword, setManualPassword] = useState("");
+  const [manualBasePath, setManualBasePath] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -99,6 +106,46 @@ export function SettingsView() {
     }
   }
 
+  async function addManualShare(event: React.FormEvent) {
+    event.preventDefault();
+    if (!manualName.trim() || !manualHost.trim() || !manualShare.trim()) return;
+    setSaving(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const response = await fetch("/api/nas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: manualName.trim(),
+          host: manualHost.trim(),
+          share: manualShare.trim(),
+          username: manualUsername.trim() || null,
+          password: manualPassword || null,
+          basePath: manualBasePath.trim() || null,
+        }),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setError(json.error || t.transfers.loadError);
+        return;
+      }
+      setMessage(t.transfers.shareCreated);
+      setManualName("");
+      setManualHost("");
+      setManualShare("");
+      setManualUsername("");
+      setManualPassword("");
+      setManualBasePath("");
+      setShowManual(false);
+      await load();
+    } catch {
+      setError(t.transfers.loadError);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function toggleActive(share: NasShare) {
     try {
       const response = await fetch(`/api/nas/${share.id}`, {
@@ -152,6 +199,80 @@ export function SettingsView() {
           {t.transfers.addServer}
         </Button>
       </form>
+
+      <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-extrabold text-foreground">{t.transfers.addManualShare}</h2>
+          <button
+            type="button"
+            onClick={() => setShowManual(!showManual)}
+            className="text-xs font-bold text-primary hover:underline"
+          >
+            {showManual ? t.transfers.empty : <>{t.transfers.addManualShare}</>}
+          </button>
+        </div>
+        {showManual && (
+          <form onSubmit={addManualShare} className="mt-4 space-y-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <FormField label={t.transfers.shareName}>
+                <Input
+                  value={manualName}
+                  onChange={(e) => setManualName(e.target.value)}
+                  placeholder={t.transfers.shareNamePlaceholder}
+                  required
+                />
+              </FormField>
+              <FormField label={t.transfers.shareHost}>
+                <Input
+                  value={manualHost}
+                  onChange={(e) => setManualHost(e.target.value)}
+                  dir="ltr"
+                  placeholder={t.transfers.shareHostPlaceholder}
+                  required
+                />
+              </FormField>
+              <FormField label={t.transfers.shareShare}>
+                <Input
+                  value={manualShare}
+                  onChange={(e) => setManualShare(e.target.value)}
+                  dir="ltr"
+                  placeholder={t.transfers.shareSharePlaceholder}
+                  required
+                />
+              </FormField>
+              <FormField label={t.transfers.shareBasePath}>
+                <Input
+                  value={manualBasePath}
+                  onChange={(e) => setManualBasePath(e.target.value)}
+                  dir="ltr"
+                  placeholder={t.transfers.shareBasePathPlaceholder}
+                />
+              </FormField>
+              <FormField label={t.transfers.shareUsername}>
+                <Input
+                  value={manualUsername}
+                  onChange={(e) => setManualUsername(e.target.value)}
+                  dir="ltr"
+                  placeholder={t.transfers.shareUsernamePlaceholder}
+                />
+              </FormField>
+              <FormField label={t.transfers.sharePassword}>
+                <Input
+                  type="password"
+                  value={manualPassword}
+                  onChange={(e) => setManualPassword(e.target.value)}
+                  dir="ltr"
+                  placeholder={t.transfers.sharePasswordPlaceholder}
+                />
+              </FormField>
+            </div>
+            <Button type="submit" loading={saving} disabled={!manualName.trim() || !manualHost.trim() || !manualShare.trim()}>
+              <FolderPlus className="size-4" aria-hidden="true" />
+              {t.transfers.addManualShare}
+            </Button>
+          </form>
+        )}
+      </div>
 
       <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
         <h2 className="mb-4 flex items-center gap-2 text-sm font-extrabold text-foreground">
