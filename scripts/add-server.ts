@@ -1,0 +1,139 @@
+import { config } from "dotenv";
+import { resolve } from "node:path";
+import { exec } from "node:child_process";
+import { promisify } from "node:util";
+import { Pool } from "pg";
+import * as readline from "node:readline";
+
+config({ path: resolve(__dirname, "..", ".env") });
+
+const execAsync = promisify(exec);
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 5,
+  connectionTimeoutMillis: 5000,
+});
+
+function ask(question: string): Promise<string> {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise((resolve) => {
+    rl.question(question, (answer: string) => {
+      rl.close();
+      resolve(answer.trim());
+    });
+  });
+}
+
+function parseNetView(stdout: string): string[] {
+  const shares: string[] = [];
+  for (const line of stdout.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    if (
+      trimmed.startsWith("Share name") ||
+      /^-+$/.test(trimmed) ||
+      trimmed.startsWith("Shared resources") ||
+      trimmed.startsWith("The command") ||
+      trimmed.startsWith("Server")
+    ) {
+      continue;
+    }
+    const parts = trimmed.split(/\s{2,}/);
+    const name = (parts[0] || "").trim();
+    const type = (parts[1] || "").trim();
+    if (name && type.toLowerCase().startsWith("disk")) {
+      shares.push(name);
+    }
+  }
+  return [...new Set(shares)];
+}
+
+async function discoverShares(host: string): Promise<string[]> {
+  console.log(`\n  Discovering shares on \\\\${host} ...`);
+  try {
+    const { stdout } = await execAsync(
+      `net view "\\\\${host}"`,
+      { timeout: 20000, maxBuffer: 4 * 1024 * 1024, windowsHide: true },
+    );
+    return parseNetView(stdout);
+  } catch (error: unknown) {
+    const err = error as { stdout?: string };
+    if (err.stdout) {
+      return parseNetView(err.stdout);
+    }
+    throw error;
+  }
+}
+
+async function saveShares(host: string, shares: string[]): Promise<number> {
+  const client = await pool.connect();
+  let saved = 0;
+  try {
+    const existing = await client.query(
+      "SELECT share FROM nas_shares WHERE host = $1",
+      [host],
+    );
+    const existingSet = new Set(
+      (existing.rows as { share: string }[]).map((r) => r.share.toLowerCase()),
+    );
+
+    for (const share of shares) {
+      if (existingSet.has(share.toLowerCase())) {
+        await client.query(
+          "UPDATE nas_shares SET is_active = true, updated_at = NOW() WHERE host = $1 AND LOWER(share) = LOWER($2)",
+          [host, share],
+        );
+        console.log(`  [reactivated] \\\\${host}\\${share}`);
+      } else {
+        await client.query(
+          "INSERT INTO nas_shares (name, host, protocol, share, is_active, created_at, updated_at) VALUES ($1, $2, 'SMB', $3, true, NOW(), NOW())",
+          [share, host, share],
+        );
+        console.log(`  [added]       \\\\${host}\\${share}`);
+        saved++;
+      }
+    }
+  } finally {
+    client.release();
+  }
+  return saved;
+}
+
+async function main() {
+  console.log("==========================================");
+  console.log("   Celia - NAS Server Discovery Tool");
+  console.log("==========================================\n");
+
+  let host = process.argv[2]?.trim() ?? null;
+  if (!host) {
+    host = await ask("  Enter NAS server IP (e.g. 192.168.1.104): ");
+  }
+
+  if (!host) {
+    console.error("\n  No host provided. Exiting.");
+    process.exit(1);
+  }
+
+  host = host.replace(/\\+/g, "").replace(/^\/+|\/+$/g, "").trim();
+  console.log(`  Target: \\\\${host}`);
+
+  const shares = await discoverShares(host);
+  if (shares.length === 0) {
+    console.log("\n  No disk shares found on this server.");
+    process.exit(1);
+  }
+
+  console.log(`\n  Found ${shares.length} share(s): ${shares.join(", ")}`);
+
+  const saved = await saveShares(host, shares);
+  console.log(`\n  Done! ${saved} new share(s) saved to database.`);
+  console.log("  Go to https://celia-internet.vercel.app/transfers/settings to see them.\n");
+
+  await pool.end();
+}
+
+main().catch((error) => {
+  console.error("\n  Error:", error instanceof Error ? error.message : error);
+  process.exit(1);
+});
