@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle2, CircleDollarSign, HardDrive, XCircle } from "lucide-react";
+import { CheckCircle2, CircleDollarSign, HardDrive, Wallet } from "lucide-react";
 import type { DashboardStats } from "@/lib/dashboard/stats";
 import { formatCurrency, formatNumber } from "@/lib/format";
 import { useLocale } from "@/lib/i18n/locale-provider";
@@ -82,10 +82,10 @@ export function DashboardContent({ initialStats }: DashboardContentProps) {
           tone="warning"
         />
         <StatCard
-          title={t.dashboard.today.uncompletedCopies}
-          value={formatNumber(stats.today.uncompletedCopies)}
-          icon={XCircle}
-          tone="danger"
+          title={t.dashboard.today.totalBalance ?? "اجمالي الشحن"}
+          value={formatCurrency(stats.today.balanceTotal ?? 0)}
+          icon={Wallet}
+          tone="primary"
         />
       </div>
 

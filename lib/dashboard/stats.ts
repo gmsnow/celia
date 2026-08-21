@@ -7,6 +7,7 @@ export interface DayStats {
   uncompletedCopies: number;
   sizeGB: number;
   hobaniIncome: number;
+  balanceTotal: number;
 }
 
 export interface SalesPoint {
@@ -65,6 +66,7 @@ const EMPTY_DAY: DayStats = {
   uncompletedCopies: 0,
   sizeGB: 0,
   hobaniIncome: 0,
+  balanceTotal: 0,
 };
 
 const REVENUE_TTL_MS = 10_000;
@@ -117,6 +119,19 @@ async function loadHobaniIncomeFor(day: Date): Promise<number> {
       .from(schema.hobaniIncome)
       .where(and(gte(schema.hobaniIncome.createdAt, day), lt(schema.hobaniIncome.createdAt, end)));
     return Number(row?.income ?? 0);
+  } catch {
+    return 0;
+  }
+}
+
+async function loadBalanceTotal(): Promise<number> {
+  try {
+    const { db, schema } = await import("@/lib/db");
+    const { sql } = await import("drizzle-orm");
+    const [row] = await db
+      .select({ total: sql<number>`coalesce(sum(${schema.balanceCharge.amount}::numeric), 0)` })
+      .from(schema.balanceCharge);
+    return Number(row?.total ?? 0);
   } catch {
     return 0;
   }
@@ -410,7 +425,7 @@ async function computeDashboardStats(): Promise<DashboardStats> {
   const yesterdayStart = new Date(todayStart);
   yesterdayStart.setDate(yesterdayStart.getDate() - 1);
 
-  const [today, yesterday, revenue, revenueChartMonths] = await Promise.all([
+  const [today, yesterday, revenue, revenueChartMonths, balanceTotal] = await Promise.all([
     loadTodayTransferDayStats(todayStart).then(async (stats) => {
       stats.hobaniIncome = await loadHobaniIncomeFor(todayStart);
       return stats;
@@ -421,7 +436,10 @@ async function computeDashboardStats(): Promise<DashboardStats> {
     }),
     getRevenueCards(),
     getMonthlyRevenuePoints(new Date().getFullYear()),
+    loadBalanceTotal(),
   ]);
+
+  today.balanceTotal = balanceTotal;
 
   return {
     today,

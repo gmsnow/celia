@@ -155,6 +155,7 @@ const ar = {
       sizeGB: "حجم النسخ اليوم بالجيجا",
       hobaniIncome: "دخل نظام الحوباني",
       uncompletedCopies: "عدد النسخ اليوم غير المكتملة",
+      totalBalance: "اجمالي الشحن",
     },
     revenueCards: {
       daily: "الإيرادات اليومية",
@@ -1144,6 +1145,7 @@ const en: Dictionary = {
       sizeGB: "Copies size today (GB)",
       hobaniIncome: "Hobani system income",
       uncompletedCopies: "Uncompleted copies today",
+      totalBalance: "Total balance recharge",
     },
     revenueCards: {
       daily: "Daily revenue",
